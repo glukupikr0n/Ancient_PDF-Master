@@ -111,6 +111,77 @@ body {
   color: var(--danger);
 }
 
+/* ── Update Banner ── */
+
+.update-banner {
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  background: rgba(52, 152, 219, 0.15);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  color: #3498db;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.update-info {
+  flex: 1;
+  font-size: 13px;
+}
+
+.update-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-small-accent {
+  background: rgba(52, 152, 219, 0.2);
+  border: 1px solid rgba(52, 152, 219, 0.4);
+  border-radius: var(--radius-sm);
+  color: #3498db;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-small-accent:hover {
+  background: rgba(52, 152, 219, 0.35);
+}
+
+.update-progress {
+  height: 4px;
+  background: rgba(52, 152, 219, 0.2);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: #3498db;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.update-banner.update-ready {
+  background: rgba(46, 204, 113, 0.15);
+  border-color: rgba(46, 204, 113, 0.3);
+  color: var(--success);
+}
+
+.update-banner.update-ready .btn-small-accent {
+  background: rgba(46, 204, 113, 0.2);
+  border-color: rgba(46, 204, 113, 0.4);
+  color: var(--success);
+}
+
 .hidden {
   display: none !important;
 }

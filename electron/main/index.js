@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 const { PythonBridge } = require("./python-bridge");
+const { initAutoUpdater } = require("./auto-updater");
 
 let mainWindow;
 let pythonBridge;
@@ -31,6 +32,7 @@ function createWindow() {
 app.whenReady().then(() => {
   pythonBridge = new PythonBridge();
   createWindow();
+  initAutoUpdater(mainWindow);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

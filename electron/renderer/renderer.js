@@ -490,6 +490,68 @@ btnClearLog.addEventListener("click", () => {
   logOutput.innerHTML = "";
 });
 
+// ── Auto-Updater UI ──
+
+const updateBanner = document.getElementById("update-banner");
+const updateMessage = document.getElementById("update-message");
+const updateProgressBar = document.getElementById("update-progress-bar");
+const updateProgressFill = document.getElementById("update-progress-fill");
+const btnUpdateDownload = document.getElementById("btn-update-download");
+const btnUpdateInstall = document.getElementById("btn-update-install");
+const btnUpdateDismiss = document.getElementById("btn-update-dismiss");
+
+window.api.onUpdaterStatus((data) => {
+  switch (data.status) {
+    case "available":
+      updateBanner.classList.remove("hidden", "update-ready");
+      updateMessage.textContent = `Update available: v${data.version}`;
+      btnUpdateDownload.classList.remove("hidden");
+      btnUpdateInstall.classList.add("hidden");
+      updateProgressBar.classList.add("hidden");
+      log(`[UPDATE] New version available: v${data.version}`, "info");
+      break;
+
+    case "downloading":
+      updateMessage.textContent = `Downloading update: ${Math.round(data.percent)}%`;
+      updateProgressBar.classList.remove("hidden");
+      updateProgressFill.style.width = `${data.percent}%`;
+      btnUpdateDownload.classList.add("hidden");
+      break;
+
+    case "ready":
+      updateBanner.classList.add("update-ready");
+      updateMessage.textContent = `Update v${data.version} ready to install`;
+      updateProgressBar.classList.add("hidden");
+      btnUpdateDownload.classList.add("hidden");
+      btnUpdateInstall.classList.remove("hidden");
+      log(`[UPDATE] v${data.version} downloaded and ready to install`, "ok");
+      break;
+
+    case "up-to-date":
+      // Don't show banner, just log
+      log(`[OK] ${data.message}`, "ok");
+      break;
+
+    case "error":
+      log(`[UPDATE] ${data.message}`, "warn");
+      break;
+  }
+});
+
+btnUpdateDownload.addEventListener("click", async () => {
+  btnUpdateDownload.disabled = true;
+  btnUpdateDownload.textContent = "Downloading...";
+  await window.api.updaterDownload();
+});
+
+btnUpdateInstall.addEventListener("click", async () => {
+  await window.api.updaterInstall();
+});
+
+btnUpdateDismiss.addEventListener("click", () => {
+  updateBanner.classList.add("hidden");
+});
+
 // ── Start ──
 
 init();

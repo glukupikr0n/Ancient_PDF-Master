@@ -25,4 +25,15 @@ contextBridge.exposeInMainWorld("api", {
   // File operations
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   showInFolder: (path) => ipcRenderer.invoke("show-in-folder", path),
+
+  // Auto-updater
+  updaterCheck: () => ipcRenderer.invoke("updater-check"),
+  updaterDownload: () => ipcRenderer.invoke("updater-download"),
+  updaterInstall: () => ipcRenderer.invoke("updater-install"),
+  updaterGetVersion: () => ipcRenderer.invoke("updater-get-version"),
+  onUpdaterStatus: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("updater-status", handler);
+    return () => ipcRenderer.removeListener("updater-status", handler);
+  },
 });
