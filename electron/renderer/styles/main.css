@@ -281,6 +281,65 @@ body {
   border-color: var(--text-secondary);
 }
 
+/* ── Zone Settings ── */
+
+.zone-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-input {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.slider-label {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  min-width: 35px;
+}
+
+.zone-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.zone-row .text-input {
+  width: 55px;
+  text-align: center;
+}
+
+.zone-row .select-input {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.zone-row .zone-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.zone-row .zone-delete:hover {
+  color: var(--danger);
+}
+
 .btn-icon {
   font-size: 11px;
 }

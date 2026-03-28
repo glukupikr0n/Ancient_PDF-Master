@@ -85,6 +85,37 @@
           <option value="600">600 DPI (high quality)</option>
         </select>
       </div>
+
+      <div class="settings-group">
+        <label class="settings-label" for="zone-preset">Page Layout (margin annotations)</label>
+        <select id="zone-preset" class="select-input">
+          <option value="full_page">Full Page — single pass (default)</option>
+          <option value="left_margin">Left Margin — verse/section numbers in left margin</option>
+          <option value="both_margins">Both Margins — numbers left + apparatus right</option>
+          <option value="custom">Custom Zones</option>
+        </select>
+        <div class="zone-hint" id="zone-hint">
+          Tip: Use "Left Margin" for Loeb, OCT, Teubner editions with marginal verse numbers.
+        </div>
+      </div>
+
+      <div id="zone-params" class="hidden">
+        <div class="settings-group">
+          <label class="settings-label">Margin width (% of page width)</label>
+          <div class="slider-row">
+            <input type="range" id="zone-margin-width" min="5" max="25" value="12" class="slider-input">
+            <span id="zone-margin-label" class="slider-label">12%</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="zone-custom" class="hidden">
+        <div id="zone-custom-entries"></div>
+        <button id="btn-add-zone" class="btn-small" style="margin-top:8px;">+ Add Zone</button>
+        <div class="zone-hint">
+          Define zones as percentage of page. PSM 11 = sparse text (best for margins), PSM 3 = auto (best for body).
+        </div>
+      </div>
     </section>
 
     <!-- Bilingual Split Settings -->

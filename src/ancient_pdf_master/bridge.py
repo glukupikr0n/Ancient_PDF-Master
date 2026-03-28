@@ -68,6 +68,7 @@ def handle_start_ocr(params: dict) -> dict:
     from .language import validate_languages
     from .ocr_engine import ocr_page
     from .pdf_builder import build_searchable_pdf
+    from .zone_ocr import ZONE_PRESETS, ZoneConfig, ZoneType, ocr_page_with_zones
 
     input_path = params["input"]
     output_path = params["output"]
@@ -76,6 +77,28 @@ def handle_start_ocr(params: dict) -> dict:
 
     # Validate language packs before starting
     validate_languages(lang)
+
+    # Configure zone-based OCR
+    zone_preset = params.get("zone_preset", "full_page")
+    zone_params = params.get("zone_params", {})
+
+    if zone_preset in ZONE_PRESETS:
+        zones = ZONE_PRESETS[zone_preset](**zone_params)
+    elif zone_preset == "custom" and params.get("zones"):
+        zones = [
+            ZoneConfig(
+                zone_type=ZoneType(z.get("type", "body")),
+                x_start=z.get("x_start", 0.0),
+                y_start=z.get("y_start", 0.0),
+                x_end=z.get("x_end", 1.0),
+                y_end=z.get("y_end", 1.0),
+                psm=z.get("psm", 3),
+                lang=z.get("lang", ""),
+            )
+            for z in params["zones"]
+        ]
+    else:
+        zones = None  # Use default single-pass OCR
 
     _cancel_flag.clear()
 
@@ -93,13 +116,17 @@ def handle_start_ocr(params: dict) -> dict:
         if _cancel_flag.is_set():
             raise ValueError("Processing cancelled.")
 
+        zone_label = f" ({zone_preset})" if zones else ""
         send_event("progress", {
             "current": i + 1,
             "total": total,
-            "message": f"OCR page {i + 1}/{total}...",
+            "message": f"OCR page {i + 1}/{total}{zone_label}...",
         })
 
-        result = ocr_page(image, lang=lang)
+        if zones:
+            result = ocr_page_with_zones(image, zones, lang=lang)
+        else:
+            result = ocr_page(image, lang=lang)
         ocr_results.append(result)
 
         send_event("progress", {

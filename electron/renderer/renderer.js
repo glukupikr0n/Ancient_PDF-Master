@@ -59,6 +59,16 @@ const tocImportArea = document.getElementById("toc-import-area");
 const tocImportText = document.getElementById("toc-import-text");
 const btnParseToc = document.getElementById("btn-parse-toc");
 
+// Zone OCR elements
+const zonePreset = document.getElementById("zone-preset");
+const zoneHint = document.getElementById("zone-hint");
+const zoneParams = document.getElementById("zone-params");
+const zoneCustom = document.getElementById("zone-custom");
+const zoneMarginWidth = document.getElementById("zone-margin-width");
+const zoneMarginLabel = document.getElementById("zone-margin-label");
+const zoneCustomEntries = document.getElementById("zone-custom-entries");
+const btnAddZone = document.getElementById("btn-add-zone");
+
 let currentOutputPath = "";
 let removeProgressListener = null;
 
@@ -176,6 +186,86 @@ pagelabelsPreset.addEventListener("change", () => {
 tocEnabled.addEventListener("change", () => {
   tocSettings.classList.toggle("hidden", !tocEnabled.checked);
 });
+
+// ── Zone OCR Settings ──
+
+const ZONE_HINTS = {
+  full_page: "Standard single-pass OCR. Works for clean prints without marginal annotations.",
+  left_margin: "Splits the page into left margin (sparse text mode for verse/section numbers) and body. Best for Loeb, OCT, Teubner editions.",
+  both_margins: "Three zones: left margin (line numbers) + body + right margin (apparatus references). For critical editions.",
+  custom: "Define custom zones manually. Use PSM 11 for margins, PSM 3 for body text.",
+};
+
+zonePreset.addEventListener("change", () => {
+  const val = zonePreset.value;
+  zoneHint.textContent = ZONE_HINTS[val] || "";
+  zoneParams.classList.toggle("hidden", val === "full_page" || val === "custom");
+  zoneCustom.classList.toggle("hidden", val !== "custom");
+});
+
+zoneMarginWidth.addEventListener("input", () => {
+  zoneMarginLabel.textContent = `${zoneMarginWidth.value}%`;
+});
+
+function addCustomZoneRow(xStart = 0, yStart = 0, xEnd = 100, yEnd = 100, psm = 3) {
+  const row = document.createElement("div");
+  row.className = "zone-row";
+  row.innerHTML = `
+    <span style="color:var(--text-secondary)">x:</span>
+    <input type="number" class="text-input zr-x1" value="${xStart}" min="0" max="100">
+    <span>-</span>
+    <input type="number" class="text-input zr-x2" value="${xEnd}" min="0" max="100">
+    <span style="color:var(--text-secondary)">y:</span>
+    <input type="number" class="text-input zr-y1" value="${yStart}" min="0" max="100">
+    <span>-</span>
+    <input type="number" class="text-input zr-y2" value="${yEnd}" min="0" max="100">
+    <select class="select-input zr-psm">
+      <option value="3" ${psm === 3 ? "selected" : ""}>PSM 3 (auto)</option>
+      <option value="11" ${psm === 11 ? "selected" : ""}>PSM 11 (sparse)</option>
+      <option value="6" ${psm === 6 ? "selected" : ""}>PSM 6 (block)</option>
+      <option value="4" ${psm === 4 ? "selected" : ""}>PSM 4 (column)</option>
+    </select>
+    <button class="zone-delete">&times;</button>
+  `;
+  row.querySelector(".zone-delete").addEventListener("click", () => row.remove());
+  zoneCustomEntries.appendChild(row);
+}
+
+btnAddZone.addEventListener("click", () => addCustomZoneRow());
+
+function getZoneConfig() {
+  const preset = zonePreset.value;
+  if (preset === "full_page") return {};
+
+  if (preset === "custom") {
+    const rows = zoneCustomEntries.querySelectorAll(".zone-row");
+    const zones = [];
+    rows.forEach((row) => {
+      zones.push({
+        type: "body",
+        x_start: parseInt(row.querySelector(".zr-x1").value) / 100,
+        y_start: parseInt(row.querySelector(".zr-y1").value) / 100,
+        x_end: parseInt(row.querySelector(".zr-x2").value) / 100,
+        y_end: parseInt(row.querySelector(".zr-y2").value) / 100,
+        psm: parseInt(row.querySelector(".zr-psm").value),
+      });
+    });
+    return { zone_preset: "custom", zones };
+  }
+
+  // Preset with adjustable margin width
+  const marginWidth = parseInt(zoneMarginWidth.value) / 100;
+  const zoneParamsObj = {};
+
+  if (preset === "left_margin") {
+    zoneParamsObj.margin_width = marginWidth;
+  } else if (preset === "both_margins") {
+    zoneParamsObj.left_margin = marginWidth;
+    zoneParamsObj.right_margin = marginWidth;
+  }
+
+  return { zone_preset: preset, zone_params: zoneParamsObj };
+}
 
 // ── Language Selection ──
 
@@ -425,6 +515,10 @@ btnStart.addEventListener("click", async () => {
       log(`Output: ${output}`, "info");
 
       const params = { input, output, lang, dpi };
+
+      // Add zone OCR config
+      const zoneConfig = getZoneConfig();
+      Object.assign(params, zoneConfig);
 
       // Add page labels if enabled
       const pageLabels = getPageLabels();
