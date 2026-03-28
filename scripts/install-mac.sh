@@ -71,6 +71,13 @@ if ! command -v pdftoppm &>/dev/null; then
 fi
 echo "  [OK] Poppler installed"
 
+# Check qpdf (required by pikepdf if no pre-built wheel available)
+if ! brew list qpdf &>/dev/null 2>&1; then
+  echo "  Installing qpdf (needed by pikepdf)..."
+  brew install qpdf
+fi
+echo "  [OK] qpdf installed"
+
 # Check language packs
 TESS_LANGS=$(tesseract --list-langs 2>&1)
 NEED_LANG=false
@@ -106,11 +113,17 @@ pip install --upgrade pip setuptools wheel --quiet 2>&1 || {
 }
 
 echo "  Installing Python packages..."
-if ! pip install pytesseract Pillow pdf2image pikepdf reportlab --quiet 2>&1; then
+# Set C/C++ flags so pikepdf can find qpdf headers if building from source
+BREW_PREFIX="$(brew --prefix)"
+export CFLAGS="-I$BREW_PREFIX/include"
+export LDFLAGS="-L$BREW_PREFIX/lib"
+export CPPFLAGS="-I$BREW_PREFIX/include"
+export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig"
+
+if ! pip install pytesseract Pillow pdf2image pikepdf reportlab 2>&1 | tail -3; then
   echo ""
   echo "ERROR: pip install failed."
   echo "  Try: $VENV_DIR/bin/pip install pytesseract Pillow pdf2image pikepdf reportlab"
-  echo "  If pikepdf fails: brew install qpdf"
   exit 1
 fi
 echo "  [OK] Python packages installed"

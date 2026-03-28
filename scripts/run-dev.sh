@@ -54,11 +54,17 @@ pip install --upgrade pip setuptools wheel --quiet 2>/dev/null || true
 # Ensure Python deps are installed
 if ! python3 -c "import pytesseract" 2>/dev/null; then
   echo "Installing Python dependencies..."
-  if ! pip install -e . --quiet 2>&1; then
+  # Set flags for pikepdf/qpdf compilation if needed
+  if command -v brew &>/dev/null; then
+    BREW_PREFIX="$(brew --prefix)"
+    export CFLAGS="-I$BREW_PREFIX/include"
+    export LDFLAGS="-L$BREW_PREFIX/lib"
+    export CPPFLAGS="-I$BREW_PREFIX/include"
+  fi
+  if ! pip install -e . 2>&1 | tail -3; then
     echo ""
     echo "ERROR: pip install failed."
-    echo "Try manually: $VENV_DIR/bin/pip install -e ."
-    echo "If pikepdf fails: brew install qpdf"
+    echo "Try: brew install qpdf && $VENV_DIR/bin/pip install -e ."
     exit 1
   fi
 fi
