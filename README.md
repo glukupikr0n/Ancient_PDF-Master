@@ -29,30 +29,43 @@ sudo apt install tesseract-ocr tesseract-ocr-grc tesseract-ocr-lat poppler-utils
 
 Node.js 18+ and npm
 
-## Installation & Development
+## Quick Install (macOS)
+
+앱 아이콘으로 실행 가능한 `.app` 번들을 빌드하고 `/Applications`에 설치합니다:
+
+```bash
+git clone https://github.com/bitswt/Ancient_PDF-Master.git
+cd Ancient_PDF-Master
+./scripts/install-mac.sh
+```
+
+설치 후 **Spotlight (Cmd+Space) → "Ancient PDF Master"** 로 실행하거나 Launchpad에서 클릭하세요.
+
+## Development Mode
+
+`.app` 빌드 없이 바로 실행:
 
 ```bash
 git clone https://github.com/bitswt/Ancient_PDF-Master.git
 cd Ancient_PDF-Master
 
-# Python backend
-pip install -e .
-
-# Electron frontend
+pip3 install -e .
 npm install
-
-# Run in development mode
 npm start
+```
+
+또는 원커맨드:
+
+```bash
+./scripts/run-dev.sh
 ```
 
 ## Building DMG
 
-```bash
-# Build macOS DMG
-npm run build:dmg
+배포용 DMG 패키지:
 
-# Build for all platforms
-npm run build
+```bash
+npm run build:dmg
 ```
 
 Output: `dist/Ancient PDF Master-1.0.0.dmg`
