@@ -29,9 +29,20 @@ class PythonBridge {
   }
 
   _findPython() {
-    // Try common Python paths
-    const candidates = ["python3", "python"];
-    return candidates[0]; // Will be resolved by PATH
+    const fs = require("fs");
+
+    // Check for project venv first (created by install-mac.sh / run-dev.sh)
+    const projectRoot = app.isPackaged
+      ? path.join(process.resourcesPath, "..")
+      : path.join(__dirname, "../..");
+    const venvPython = path.join(projectRoot, ".venv", "bin", "python3");
+
+    if (fs.existsSync(venvPython)) {
+      return venvPython;
+    }
+
+    // Fallback to system Python
+    return "python3";
   }
 
   _spawn() {

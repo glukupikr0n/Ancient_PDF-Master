@@ -73,15 +73,18 @@ echo "  [OK] Language packs: grc, lat, eng"
 
 echo ""
 
-# ── 2. Install Python backend ──
+# ── 2. Install Python backend (using venv) ──
 echo "[2/5] Installing Python backend..."
-pip3 install -e . --quiet 2>&1 || {
-  echo "ERROR: pip install failed. Try:"
-  echo "  pip3 install --break-system-packages -e ."
-  echo "  OR use a virtual environment: python3 -m venv .venv && source .venv/bin/activate"
-  exit 1
-}
-echo "  [OK] Python packages installed"
+VENV_DIR="$PROJECT_DIR/.venv"
+
+if [ ! -d "$VENV_DIR" ]; then
+  echo "  Creating virtual environment..."
+  python3 -m venv "$VENV_DIR"
+fi
+
+source "$VENV_DIR/bin/activate"
+pip install -e . --quiet 2>&1
+echo "  [OK] Python packages installed (venv: .venv)"
 echo ""
 
 # ── 3. Install Node.js dependencies ──

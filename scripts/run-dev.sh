@@ -4,7 +4,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$(dirname "$SCRIPT_DIR")"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_DIR"
 
 echo "=== Ancient PDF Master - Dev Mode ==="
 
@@ -16,10 +17,18 @@ for cmd in python3 node tesseract; do
   fi
 done
 
+# Setup venv if needed
+VENV_DIR="$PROJECT_DIR/.venv"
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating virtual environment..."
+  python3 -m venv "$VENV_DIR"
+fi
+source "$VENV_DIR/bin/activate"
+
 # Ensure Python deps are installed
 if ! python3 -c "import pytesseract" 2>/dev/null; then
   echo "Installing Python dependencies..."
-  pip3 install -e . --quiet
+  pip install -e . --quiet
 fi
 
 # Ensure Node deps are installed

@@ -49,12 +49,14 @@ cd Ancient_PDF-Master
 git clone https://github.com/bitswt/Ancient_PDF-Master.git
 cd Ancient_PDF-Master
 
-pip3 install -e .
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 npm install
 npm start
 ```
 
-또는 원커맨드:
+또는 원커맨드 (venv 자동 생성):
 
 ```bash
 ./scripts/run-dev.sh
