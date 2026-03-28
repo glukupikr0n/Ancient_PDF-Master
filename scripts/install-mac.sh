@@ -7,11 +7,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
-echo "=== Ancient PDF Master - macOS Install ==="
+APP_NAME="Ancient PDF Master"
+APP_SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
+
+echo "=== $APP_NAME — macOS Install ==="
 echo ""
 
 # ── 1. Check system dependencies ──
-echo "[1/5] Checking system dependencies..."
+echo "[1/6] Checking system dependencies..."
 
 # Check Homebrew
 if ! command -v brew &>/dev/null; then
@@ -22,20 +25,18 @@ fi
 
 # Check Node.js
 if ! command -v node &>/dev/null; then
-  echo "Installing Node.js..."
+  echo "  Installing Node.js..."
   brew install node
 fi
 
 NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
 if [ "$NODE_VERSION" -lt 18 ]; then
-  echo "ERROR: Node.js 18+ is required (found v$NODE_VERSION)."
-  echo "Run: brew upgrade node"
+  echo "ERROR: Node.js 18+ required (found v$NODE_VERSION). Run: brew upgrade node"
   exit 1
 fi
 echo "  [OK] Node.js $(node -v)"
 
-# Check Python 3 — prefer Homebrew Python over Xcode bundled Python
-# Xcode Python has pip 21.x which can't do pyproject.toml editable installs
+# Check Python 3 — prefer Homebrew over Xcode
 PYTHON3=""
 BREW_PYTHON="$(brew --prefix)/bin/python3"
 if [ -x "$BREW_PYTHON" ]; then
@@ -43,14 +44,14 @@ if [ -x "$BREW_PYTHON" ]; then
 elif command -v python3 &>/dev/null; then
   PY_PATH="$(which python3)"
   if [[ "$PY_PATH" == *"Xcode"* || "$PY_PATH" == *"CommandLineTools"* ]]; then
-    echo "  Xcode Python detected ($PY_PATH) — installing Homebrew Python..."
+    echo "  Xcode Python detected — installing Homebrew Python..."
     brew install python3
     PYTHON3="$(brew --prefix)/bin/python3"
   else
     PYTHON3="python3"
   fi
 else
-  echo "Installing Python 3..."
+  echo "  Installing Python 3..."
   brew install python3
   PYTHON3="$(brew --prefix)/bin/python3"
 fi
@@ -58,19 +59,19 @@ echo "  [OK] Python $($PYTHON3 --version)"
 
 # Check Tesseract
 if ! command -v tesseract &>/dev/null; then
-  echo "Installing Tesseract OCR..."
+  echo "  Installing Tesseract OCR..."
   brew install tesseract
 fi
 echo "  [OK] Tesseract $(tesseract --version 2>&1 | head -1)"
 
-# Check Poppler (required by pdf2image for PDF input)
+# Check Poppler
 if ! command -v pdftoppm &>/dev/null; then
-  echo "Installing Poppler (PDF rendering)..."
+  echo "  Installing Poppler..."
   brew install poppler
 fi
 echo "  [OK] Poppler installed"
 
-# Check Tesseract language packs
+# Check language packs
 TESS_LANGS=$(tesseract --list-langs 2>&1)
 NEED_LANG=false
 for LANG_CODE in grc lat; do
@@ -81,92 +82,91 @@ for LANG_CODE in grc lat; do
 done
 
 if [ "$NEED_LANG" = true ]; then
-  echo "Installing Tesseract language packs (Ancient Greek, Latin)..."
+  echo "  Installing Tesseract language packs (Ancient Greek, Latin)..."
   brew install tesseract-lang
 fi
 echo "  [OK] Language packs: grc, lat, eng"
-
 echo ""
 
-# ── 2. Install Python backend (using venv) ──
-echo "[2/5] Installing Python backend..."
-VENV_DIR="$PROJECT_DIR/.venv"
+# ── 2. Create Python venv in Application Support ──
+echo "[2/6] Setting up Python environment..."
+mkdir -p "$APP_SUPPORT_DIR"
+VENV_DIR="$APP_SUPPORT_DIR/.venv"
 
 if [ ! -d "$VENV_DIR" ]; then
-  echo "  Creating virtual environment with $PYTHON3..."
+  echo "  Creating virtual environment..."
   "$PYTHON3" -m venv "$VENV_DIR"
-  if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to create virtual environment."
-    echo "Try: brew install python3"
-    exit 1
-  fi
 fi
 
 source "$VENV_DIR/bin/activate"
 
 echo "  Upgrading pip..."
 pip install --upgrade pip setuptools wheel --quiet 2>&1 || {
-  echo "WARNING: pip upgrade failed, continuing with existing version..."
+  echo "  WARNING: pip upgrade failed, continuing..."
 }
 
 echo "  Installing Python packages..."
-if ! pip install -e . --quiet 2>&1; then
+if ! pip install pytesseract Pillow pdf2image pikepdf reportlab --quiet 2>&1; then
   echo ""
   echo "ERROR: pip install failed."
-  echo ""
-  echo "Common fixes:"
-  echo "  1. Upgrade pip:   $VENV_DIR/bin/pip install --upgrade pip"
-  echo "  2. Install qpdf:  brew install qpdf   (needed if pikepdf build fails)"
-  echo "  3. Retry:         $VENV_DIR/bin/pip install -e ."
-  echo ""
-  echo "If the error persists, try installing dependencies individually:"
-  echo "  $VENV_DIR/bin/pip install pytesseract Pillow pdf2image pikepdf reportlab"
+  echo "  Try: $VENV_DIR/bin/pip install pytesseract Pillow pdf2image pikepdf reportlab"
+  echo "  If pikepdf fails: brew install qpdf"
   exit 1
 fi
-echo "  [OK] Python packages installed (venv: .venv)"
+echo "  [OK] Python packages installed"
+echo "  [OK] venv: $VENV_DIR"
 echo ""
 
+# Also create local .venv for dev mode (npm start)
+LOCAL_VENV="$PROJECT_DIR/.venv"
+if [ ! -d "$LOCAL_VENV" ]; then
+  echo "  Creating local dev venv..."
+  "$PYTHON3" -m venv "$LOCAL_VENV"
+  "$LOCAL_VENV/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
+  "$LOCAL_VENV/bin/pip" install -e . --quiet 2>&1 || true
+fi
+
 # ── 3. Install Node.js dependencies ──
-echo "[3/5] Installing Node.js dependencies..."
+echo "[3/6] Installing Node.js dependencies..."
 if ! npm install 2>&1 | tail -5; then
-  echo "ERROR: npm install failed."
-  echo "Try: rm -rf node_modules && npm install"
+  echo "ERROR: npm install failed. Try: rm -rf node_modules && npm install"
   exit 1
 fi
 echo "  [OK] Node.js packages installed"
 echo ""
 
 # ── 4. Build .app bundle ──
-echo "[4/5] Building .app bundle..."
-# --config.mac.identity=null skips code signing for local install
+echo "[4/6] Building .app bundle..."
 if ! npx electron-builder --mac dir --config.mac.identity=null 2>&1 | tail -5; then
   echo ""
-  echo "WARNING: .app build failed. You can still run in dev mode: npm start"
+  echo "WARNING: .app build failed. You can still run: npm start"
   echo ""
 fi
 
 # ── 5. Copy to /Applications ──
-APP_NAME="Ancient PDF Master"
 APP_SRC=$(find dist -name "*.app" -maxdepth 3 -type d 2>/dev/null | head -1)
 
 if [ -z "$APP_SRC" ]; then
-  echo "WARNING: .app bundle not found in dist/"
-  echo ""
-  echo "You can run in development mode instead:"
-  echo "  npm start"
-  echo ""
-  echo "Or retry the build:"
-  echo "  npx electron-builder --mac dir --config.mac.identity=null"
+  echo "WARNING: .app not found in dist/"
+  echo "  You can run in dev mode: npm start"
+  echo "  Or retry: npx electron-builder --mac dir --config.mac.identity=null"
   exit 0
 fi
 
-echo "[5/5] Installing to /Applications..."
+echo "[5/6] Installing to /Applications..."
 if [ -d "/Applications/$APP_NAME.app" ]; then
   echo "  Removing previous installation..."
   rm -rf "/Applications/$APP_NAME.app"
 fi
 
 cp -R "$APP_SRC" "/Applications/$APP_NAME.app"
+echo "  [OK] Installed to /Applications/$APP_NAME.app"
+echo ""
+
+# ── 6. Clear quarantine (so macOS doesn't block unsigned app) ──
+echo "[6/6] Clearing quarantine attribute..."
+xattr -rd com.apple.quarantine "/Applications/$APP_NAME.app" 2>/dev/null || true
+echo "  [OK] Quarantine cleared"
 
 echo ""
 echo "==========================================="
@@ -174,10 +174,13 @@ echo "  Installation Complete!"
 echo "==========================================="
 echo ""
 echo "  Launch:"
-echo "    - Spotlight: Cmd+Space → 'Ancient PDF Master'"
-echo "    - Finder:    /Applications/Ancient PDF Master.app"
-echo "    - Terminal:   open '/Applications/Ancient PDF Master.app'"
+echo "    Spotlight:  Cmd+Space → '$APP_NAME'"
+echo "    Finder:     /Applications/$APP_NAME.app"
+echo "    Terminal:    open '/Applications/$APP_NAME.app'"
 echo ""
-echo "  If macOS blocks the app:"
+echo "  Dev mode (no .app needed):"
+echo "    npm start"
+echo ""
+echo "  If macOS still blocks the app:"
 echo "    System Settings → Privacy & Security → Open Anyway"
 echo ""

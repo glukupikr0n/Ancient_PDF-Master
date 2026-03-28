@@ -27,7 +27,7 @@
     ],
     "extraResources": [
       {
-        "from": "src/ancient_pdf_master",
+        "from": "src",
         "to": "python",
         "filter": ["**/*.py"]
       }
