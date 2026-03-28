@@ -134,8 +134,21 @@ async function init() {
     tesseractStatus.classList.remove("hidden");
     tesseractStatus.classList.add("error");
     statusIcon.textContent = "✗";
-    statusMessage.textContent = "Failed to connect to Python backend";
-    log("[ERROR] Failed to connect to Python backend: " + err.message, "error");
+
+    const msg = err.message || "Unknown error";
+
+    if (msg.includes("Missing Python packages")) {
+      statusMessage.textContent = "Python packages not installed";
+      log("[ERROR] " + msg, "error");
+      log("[FIX] Run: ./scripts/run-dev.sh  (or ./scripts/install-mac.sh for full install)", "warn");
+    } else if (msg.includes("Failed to start") || msg.includes("ENOENT")) {
+      statusMessage.textContent = "Python not found";
+      log("[ERROR] " + msg, "error");
+      log("[FIX] Run: ./scripts/install-mac.sh", "warn");
+    } else {
+      statusMessage.textContent = "Python backend error";
+      log("[ERROR] " + msg, "error");
+    }
   }
 }
 

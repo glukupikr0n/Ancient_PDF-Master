@@ -292,6 +292,34 @@ def dispatch(request: dict):
 
 def main():
     """Main loop: read JSON requests from stdin, dispatch, respond on stdout."""
+    # Check required packages before accepting requests
+    missing = []
+    for pkg, import_name in [
+        ("pytesseract", "pytesseract"),
+        ("Pillow", "PIL"),
+        ("pdf2image", "pdf2image"),
+        ("pikepdf", "pikepdf"),
+        ("reportlab", "reportlab"),
+    ]:
+        try:
+            __import__(import_name)
+        except ImportError:
+            missing.append(pkg)
+
+    if missing:
+        msg = json.dumps({
+            "ready": False,
+            "error": f"Missing Python packages: {', '.join(missing)}. "
+                     f"Run: pip install {' '.join(missing)}",
+        })
+        sys.stdout.write(msg + "\n")
+        sys.stdout.flush()
+        sys.exit(1)
+
+    # Signal ready
+    sys.stdout.write(json.dumps({"ready": True}) + "\n")
+    sys.stdout.flush()
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
