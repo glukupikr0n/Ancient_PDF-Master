@@ -3,15 +3,30 @@
 # Usage: ./scripts/run-dev.sh
 set -e
 
-cd "$(dirname "$0")/.."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$(dirname "$SCRIPT_DIR")"
+
+echo "=== Ancient PDF Master - Dev Mode ==="
+
+# Check critical dependencies
+for cmd in python3 node tesseract; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "ERROR: $cmd not found. Run ./scripts/install-mac.sh first."
+    exit 1
+  fi
+done
 
 # Ensure Python deps are installed
-pip3 install -e . --quiet 2>/dev/null
+if ! python3 -c "import pytesseract" 2>/dev/null; then
+  echo "Installing Python dependencies..."
+  pip3 install -e . --quiet
+fi
 
 # Ensure Node deps are installed
 if [ ! -d "node_modules" ]; then
-  npm install --silent
+  echo "Installing Node.js dependencies..."
+  npm install
 fi
 
-# Launch Electron in dev mode
+echo "Launching..."
 npm start
