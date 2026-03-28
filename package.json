@@ -35,7 +35,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "assets/icon.icns",
+      "icon": "assets/icon.png",
       "darkModeSupport": true,
       "target": [
         {
@@ -53,7 +53,7 @@
     },
     "dmg": {
       "title": "Ancient PDF Master",
-      "icon": "assets/icon.icns",
+      "icon": "assets/icon.png",
       "contents": [
         { "x": 130, "y": 220 },
         { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
@@ -69,7 +69,7 @@
     },
     "win": {
       "target": ["nsis"],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.png"
     },
     "publish": [
       {
@@ -85,6 +85,9 @@
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "author": "BitSwt",
   "license": "MIT"
