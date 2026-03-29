@@ -96,7 +96,7 @@ def _parse_page_range(range_str: str, total_pages: int) -> list[int]:
 def handle_start_ocr(params: dict) -> dict:
     from .image_handler import load_images
     from .language import validate_languages
-    from .ocr_engine import ocr_page, retry_low_confidence_words
+    from .ocr_engine import detect_columns, ocr_page, ocr_page_two_column, retry_low_confidence_words
     from .pdf_builder import build_searchable_pdf
     from .zone_ocr import ZONE_PRESETS, ZoneConfig, ZoneType, ocr_page_with_zones
 
@@ -114,8 +114,11 @@ def handle_start_ocr(params: dict) -> dict:
     # Configure zone-based OCR
     zone_preset = params.get("zone_preset", "full_page")
     zone_params = params.get("zone_params", {})
+    auto_column = (zone_preset == "auto_column")
 
-    if zone_preset in ZONE_PRESETS:
+    if auto_column:
+        zones = None  # handled per-page below
+    elif zone_preset in ZONE_PRESETS:
         zones = ZONE_PRESETS[zone_preset](**zone_params)
     elif zone_preset == "custom" and params.get("zones"):
         zones = [
@@ -212,6 +215,11 @@ def handle_start_ocr(params: dict) -> dict:
         idx, img = i_image
         if _cancel_flag.is_set():
             return idx, None
+        if auto_column:
+            ncols = detect_columns(img)
+            if ncols == 2:
+                return idx, ocr_page_two_column(img, lang=lang)
+            return idx, ocr_page(img, lang=lang)
         if zones:
             return idx, ocr_page_with_zones(img, zones, lang=lang)
         return idx, ocr_page(img, lang=lang)

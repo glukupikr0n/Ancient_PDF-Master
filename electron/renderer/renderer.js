@@ -433,7 +433,24 @@ function drawZoneOverlay() {
   const borders = ["rgba(52, 208, 88, 0.6)", "rgba(88, 166, 255, 0.6)", "rgba(248, 81, 73, 0.6)"];
 
   let zones = [];
-  if (preset === "left_margin" || preset === "both_margins") {
+  if (preset === "auto_column") {
+    // Show a hint text
+    ctx.fillStyle = "rgba(52, 208, 88, 0.3)";
+    ctx.font = "13px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Auto column detection (1 or 2 cols per page)", w / 2, 20);
+    ctx.textAlign = "left";
+    _drawCropOverlay(ctx, w, h);
+    return;
+  } else if (preset === "two_column") {
+    const m = getMarginValues();
+    zones = [
+      { x: 0, y: m.top, w: 0.48, h: 1 - m.top - m.bottom, label: "Left Column" },
+      { x: 0.52, y: m.top, w: 0.48, h: 1 - m.top - m.bottom, label: "Right Column" },
+    ];
+    if (m.top > 0) { ctx.fillStyle = "rgba(248, 81, 73, 0.1)"; ctx.fillRect(0, 0, w, m.top * h); }
+    if (m.bottom > 0) { ctx.fillStyle = "rgba(248, 81, 73, 0.1)"; ctx.fillRect(0, (1 - m.bottom) * h, w, m.bottom * h); }
+  } else if (preset === "left_margin" || preset === "both_margins") {
     zones = getMarginZones() || [];
     // Dim excluded top/bottom margins
     const m = getMarginValues();
@@ -905,13 +922,15 @@ zonePreset.addEventListener("change", () => {
   const val = zonePreset.value;
   zoneHint.textContent = {
     full_page: "Standard single-pass OCR.",
+    auto_column: "Automatically detects 1 or 2 columns per page.",
+    two_column: "Left column + right column. For bilingual or newspaper layouts.",
     auto_detect: "Automatically detect text regions. Click 'Detect' then adjust boxes.",
     body_only: "Exclude margins — OCR only the central body text area.",
     left_margin: "Left margin + body. For Loeb, OCT, Teubner editions.",
     both_margins: "Left margin + body + right margin.",
     custom: "Define custom zones. PSM 11 for margins, PSM 3 for body.",
   }[val] || "";
-  zoneParams.classList.toggle("hidden", val !== "left_margin" && val !== "both_margins");
+  zoneParams.classList.toggle("hidden", val !== "left_margin" && val !== "both_margins" && val !== "two_column");
   zoneCustom.classList.toggle("hidden", val !== "custom");
   zoneAutoDetect.classList.toggle("hidden", val !== "auto_detect");
   zoneBodyOnly.classList.toggle("hidden", val !== "body_only");
@@ -1122,6 +1141,11 @@ function getSelectedLanguages() {
 function getZoneConfig() {
   const preset = zonePreset.value;
   if (preset === "full_page") return {};
+  if (preset === "auto_column") return { zone_preset: "auto_column" };
+  if (preset === "two_column") {
+    const m = getMarginValues();
+    return { zone_preset: "two_column", zone_params: { body_margin_top: m.top, body_margin_bottom: m.bottom } };
+  }
   if (preset === "auto_detect") {
     // Collect all detected regions across pages as custom zones
     const allRegions = [];
