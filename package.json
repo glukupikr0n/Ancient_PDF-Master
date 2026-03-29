@@ -34,6 +34,10 @@
       {
         "from": "pyproject.toml",
         "to": "pyproject.toml"
+      },
+      {
+        "from": "assets/app-update.yml",
+        "to": "../app-update.yml"
       }
     ],
     "mac": {

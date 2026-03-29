@@ -32,6 +32,21 @@ function initAutoUpdater(win) {
     return;
   }
 
+  // Verify app-update.yml exists before proceeding
+  const path = require("path");
+  const fs = require("fs");
+  const updateConfigPath = path.join(process.resourcesPath, "app-update.yml");
+  if (!fs.existsSync(updateConfigPath)) {
+    console.log("[Updater] app-update.yml not found — skipping auto-update");
+    console.log("[Updater] Expected at:", updateConfigPath);
+    // Register IPC handlers that return graceful "unavailable" responses
+    ipcMain.handle("updater-check", async () => ({ status: "unavailable", message: "Update config not found. Rebuild with electron-builder to enable." }));
+    ipcMain.handle("updater-download", async () => ({ status: "unavailable" }));
+    ipcMain.handle("updater-install", () => {});
+    ipcMain.handle("updater-get-version", () => ({ version: app.getVersion() }));
+    return;
+  }
+
   // Don't auto-download — let the user decide
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -52,7 +67,7 @@ function initAutoUpdater(win) {
   });
 
   autoUpdater.on("update-not-available", (info) => {
-    sendStatus("up-to-date", `You're on the latest version (v${info.version})`);
+    sendStatus("up-to-date", `v${info.version} — up to date`);
   });
 
   autoUpdater.on("download-progress", (progress) => {
@@ -71,7 +86,13 @@ function initAutoUpdater(win) {
   });
 
   autoUpdater.on("error", (err) => {
-    sendStatus("error", `Update error: ${err.message}`);
+    // Don't show ENOENT or network errors to user — just log
+    const msg = err.message || "";
+    if (msg.includes("ENOENT") || msg.includes("net::") || msg.includes("ERR_CONNECTION")) {
+      console.log("[Updater] Silenced error:", msg);
+      return;
+    }
+    sendStatus("error", `Update error: ${msg}`);
   });
 
   // ── IPC handlers ──

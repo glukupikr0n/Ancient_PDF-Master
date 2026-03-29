@@ -150,7 +150,8 @@ echo ""
 
 # ── 4. Build .app bundle ──
 echo "[4/6] Building .app bundle..."
-if ! npx electron-builder --mac dir --config.mac.identity=null 2>&1 | tail -5; then
+# Use 'dir' target with explicit publish config so app-update.yml is generated
+if ! npx electron-builder --mac dir --config.mac.identity=null --config.mac.target=dir 2>&1 | tail -5; then
   echo ""
   echo "WARNING: .app build failed. You can still run: npm start"
   echo ""
