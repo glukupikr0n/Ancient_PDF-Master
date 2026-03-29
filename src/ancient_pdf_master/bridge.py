@@ -216,9 +216,9 @@ def handle_start_ocr(params: dict) -> dict:
         if _cancel_flag.is_set():
             return idx, None
         if auto_column:
-            ncols = detect_columns(img)
+            ncols, split_frac = detect_columns(img)
             if ncols == 2:
-                return idx, ocr_page_two_column(img, lang=lang)
+                return idx, ocr_page_two_column(img, lang=lang, split_frac=split_frac)
             return idx, ocr_page(img, lang=lang)
         if zones:
             return idx, ocr_page_with_zones(img, zones, lang=lang)

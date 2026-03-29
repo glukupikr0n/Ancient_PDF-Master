@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from ancient_pdf_master.ocr_engine import OcrPageResult, OcrWord, ocr_page, retry_low_confidence_words
+from ancient_pdf_master.ocr_engine import OcrLine, OcrPageResult, OcrWord, ocr_page, retry_low_confidence_words
 
 
 def test_ocr_page_result_confidence():
@@ -67,11 +67,14 @@ def test_retry_low_confidence_improves(mock_tess):
     }
 
     img = Image.new("RGB", (200, 100), "white")
+    word1 = OcrWord("hello", 10, 10, 50, 20, 96.0)  # above threshold
+    word2 = OcrWord("wrold", 80, 10, 50, 20, 60.0)   # below threshold → retry
+    line = OcrLine(words=[word1, word2])
+    line.compute_bounds()
+
     initial = OcrPageResult(
-        words=[
-            OcrWord("hello", 10, 10, 50, 20, 96.0),  # above threshold
-            OcrWord("wrold", 80, 10, 50, 20, 60.0),   # below threshold → retry
-        ],
+        words=[word1, word2],
+        lines=[line],
         page_width=200,
         page_height=100,
         full_text="hello wrold",
@@ -86,16 +89,23 @@ def test_retry_low_confidence_improves(mock_tess):
     # Second word improved
     assert result.words[1].text == "world"
     assert result.words[1].confidence == 98.0
+    # Lines must be preserved
+    assert len(result.lines) == 1
+    assert result.lines[0].words[1].text == "world"
+    assert result.lines[0].words[1].confidence == 98.0
 
 
 def test_retry_low_confidence_no_retry_needed():
     """When all words are above threshold, nothing changes."""
     img = Image.new("RGB", (200, 100), "white")
+    word1 = OcrWord("hello", 10, 10, 50, 20, 97.0)
+    word2 = OcrWord("world", 80, 10, 50, 20, 96.0)
+    line = OcrLine(words=[word1, word2])
+    line.compute_bounds()
+
     initial = OcrPageResult(
-        words=[
-            OcrWord("hello", 10, 10, 50, 20, 97.0),
-            OcrWord("world", 80, 10, 50, 20, 96.0),
-        ],
+        words=[word1, word2],
+        lines=[line],
         page_width=200,
         page_height=100,
         full_text="hello world",
@@ -106,3 +116,5 @@ def test_retry_low_confidence_no_retry_needed():
     assert result.word_count == 2
     assert result.words[0].confidence == 97.0
     assert result.words[1].confidence == 96.0
+    # Lines preserved
+    assert len(result.lines) == 1

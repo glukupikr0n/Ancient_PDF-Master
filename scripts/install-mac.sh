@@ -168,6 +168,12 @@ fi
 
 echo "[5/6] Installing to /Applications..."
 if [ -d "/Applications/$APP_NAME.app" ]; then
+  echo "  Stopping running instance..."
+  osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
+  sleep 1
+  # Force kill if still running
+  pkill -f "$APP_NAME" 2>/dev/null || true
+  sleep 0.5
   echo "  Removing previous installation..."
   rm -rf "/Applications/$APP_NAME.app"
 fi
