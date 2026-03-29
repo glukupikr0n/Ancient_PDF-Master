@@ -79,6 +79,69 @@ def _create_text_layer_pdf(
     return buf.getvalue()
 
 
+def _render_text_lines(c, lines, page_h: float, dpi: int):
+    """Render OCR text as invisible lines with consistent font sizing.
+
+    Each line is rendered as a single text run with spaces between words,
+    ensuring continuous text selection in PDF viewers.
+    """
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    for line in lines:
+        if not line.words:
+            continue
+
+        # Use line height for consistent font size across the line
+        h_pt = _pixels_to_points(line.height, dpi)
+        font_size = max(h_pt * 0.8, 4)
+        font_name = "Helvetica"
+
+        # Line start position
+        x_pt = _pixels_to_points(line.x, dpi)
+        y_pt = page_h - _pixels_to_points(line.y + line.height, dpi)
+        line_w_pt = _pixels_to_points(line.width, dpi)
+
+        # Build full line text
+        line_text = " ".join(w.text for w in line.words)
+
+        # Scale font to fit the line width
+        natural_width = stringWidth(line_text, font_name, font_size)
+        if natural_width > 0 and line_w_pt > 0:
+            h_scale = min(line_w_pt / natural_width, 1.5)
+            # Use character spacing to stretch/compress
+            if h_scale < 0.5:
+                # Text way too wide — reduce font size instead
+                font_size = font_size * (line_w_pt / natural_width)
+                font_size = max(font_size, 3)
+        else:
+            h_scale = 1.0
+
+        c.setFont(font_name, font_size)
+
+        text_obj = c.beginText(x_pt, y_pt)
+        text_obj.setTextRenderMode(3)  # invisible
+        text_obj.setHorizScale(h_scale * 100)
+        text_obj.textLine(line_text)
+        c.drawText(text_obj)
+
+
+def _render_text_words(c, words, page_h: float, dpi: int):
+    """Fallback: render text word-by-word (old behavior)."""
+    c.setFont("Helvetica", 12)
+    for word in words:
+        x_pt = _pixels_to_points(word.x, dpi)
+        y_pt = page_h - _pixels_to_points(word.y + word.height, dpi)
+        h_pt = _pixels_to_points(word.height, dpi)
+
+        font_size = max(h_pt * 0.85, 4)
+        c.setFont("Helvetica", font_size)
+
+        text_obj = c.beginText(x_pt, y_pt)
+        text_obj.setTextRenderMode(3)
+        text_obj.textLine(word.text)
+        c.drawText(text_obj)
+
+
 def build_searchable_pdf(
     images: list[Image.Image],
     ocr_results: list[OcrPageResult],
@@ -133,20 +196,13 @@ def build_searchable_pdf(
         from reportlab.lib.utils import ImageReader
         c.drawImage(ImageReader(img_buf), 0, 0, width=page_w, height=page_h)
 
-        # Draw invisible text layer on top
-        c.setFont("Helvetica", 12)
-        for word in ocr_result.words:
-            x_pt = _pixels_to_points(word.x, dpi)
-            y_pt = page_h - _pixels_to_points(word.y + word.height, dpi)
-            h_pt = _pixels_to_points(word.height, dpi)
-
-            font_size = max(h_pt * 0.85, 4)
-            c.setFont("Helvetica", font_size)
-
-            text_obj = c.beginText(x_pt, y_pt)
-            text_obj.setTextRenderMode(3)  # invisible
-            text_obj.textLine(word.text)
-            c.drawText(text_obj)
+        # Draw invisible text layer — line-by-line for consistent sizing
+        # and continuous text selection in PDF viewers
+        if ocr_result.lines:
+            _render_text_lines(c, ocr_result.lines, page_h, dpi)
+        else:
+            # Fallback: word-by-word if no line data
+            _render_text_words(c, ocr_result.words, page_h, dpi)
 
         c.showPage()
 

@@ -36,6 +36,9 @@ def test_ocr_page_filters_empty_text(mock_tess):
         "top": [10, 0, 0, 10],
         "width": [50, 0, 0, 50],
         "height": [20, 0, 0, 20],
+        "block_num": [1, 1, 1, 1],
+        "par_num": [1, 1, 1, 1],
+        "line_num": [1, 1, 1, 1],
     }
     mock_tess.image_to_string.return_value = "hello world"
     mock_tess.Output = type("Output", (), {"DICT": "dict"})()

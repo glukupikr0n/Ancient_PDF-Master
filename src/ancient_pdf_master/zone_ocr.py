@@ -23,7 +23,7 @@ import pytesseract
 from PIL import Image
 from pytesseract import Output
 
-from .ocr_engine import OcrPageResult, OcrWord
+from .ocr_engine import OcrLine, OcrPageResult, OcrWord
 
 
 class ZoneType(Enum):
@@ -141,10 +141,43 @@ def preset_full_page() -> list[ZoneConfig]:
     ]
 
 
+def preset_two_column(
+    gap_width: float = 0.04,
+    top_margin: float = 0.08,
+    bottom_margin: float = 0.08,
+    body_margin_top: float | None = None,
+    body_margin_bottom: float | None = None,
+) -> list[ZoneConfig]:
+    """Preset for two-column layouts (bilingual editions, newspapers, etc.)."""
+    t = body_margin_top if body_margin_top is not None else top_margin
+    b = body_margin_bottom if body_margin_bottom is not None else bottom_margin
+    mid = 0.5
+    half_gap = gap_width / 2
+    return [
+        ZoneConfig(
+            zone_type=ZoneType.BODY,
+            x_start=0.0,
+            y_start=t,
+            x_end=mid - half_gap,
+            y_end=1.0 - b,
+            psm=4,  # single column of variable-size text
+        ),
+        ZoneConfig(
+            zone_type=ZoneType.BODY,
+            x_start=mid + half_gap,
+            y_start=t,
+            x_end=1.0,
+            y_end=1.0 - b,
+            psm=4,
+        ),
+    ]
+
+
 ZONE_PRESETS = {
     "full_page": preset_full_page,
     "left_margin": preset_classical_left_margin,
     "both_margins": preset_classical_both_margins,
+    "two_column": preset_two_column,
 }
 
 
@@ -169,8 +202,8 @@ def ocr_zone(
     image: Image.Image,
     zone: ZoneConfig,
     lang: str = "grc+lat+eng",
-) -> list[OcrWord]:
-    """OCR a single zone and return words with coordinates adjusted to full page."""
+) -> tuple[list[OcrWord], list[OcrLine]]:
+    """OCR a single zone and return words+lines with coordinates adjusted to full page."""
     zone_lang = zone.lang or lang
     zone_img = _crop_zone(image, zone)
 
@@ -185,6 +218,8 @@ def ocr_zone(
     y_offset = int(zone.y_start * h)
 
     words = []
+    line_groups: dict[tuple[int, int, int], list[OcrWord]] = {}
+
     for i in range(len(data["text"])):
         text = data["text"][i].strip()
         conf = float(data["conf"][i])
@@ -192,16 +227,27 @@ def ocr_zone(
         if not text or conf < 0:
             continue
 
-        words.append(OcrWord(
+        word = OcrWord(
             text=text,
             x=data["left"][i] + x_offset,
             y=data["top"][i] + y_offset,
             width=data["width"][i],
             height=data["height"][i],
             confidence=conf,
-        ))
+        )
+        words.append(word)
 
-    return words
+        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+        line_groups.setdefault(key, []).append(word)
+
+    lines = []
+    for key in sorted(line_groups.keys()):
+        line_words = sorted(line_groups[key], key=lambda w: w.x)
+        line = OcrLine(words=line_words)
+        line.compute_bounds()
+        lines.append(line)
+
+    return words, lines
 
 
 def ocr_page_with_zones(
@@ -212,21 +258,24 @@ def ocr_page_with_zones(
     """OCR a page using multiple zones and merge results.
 
     Each zone is OCR'd independently with its own PSM mode, then all
-    words are combined into a single OcrPageResult with coordinates
-    relative to the full page.
+    words and lines are combined into a single OcrPageResult with
+    coordinates relative to the full page.
     """
     all_words: list[OcrWord] = []
+    all_lines: list[OcrLine] = []
 
     for zone in zones:
-        zone_words = ocr_zone(image, zone, lang)
+        zone_words, zone_lines = ocr_zone(image, zone, lang)
         all_words.extend(zone_words)
+        all_lines.extend(zone_lines)
 
-    # Build full text by sorting words top-to-bottom, left-to-right
-    sorted_words = sorted(all_words, key=lambda w: (w.y, w.x))
-    full_text = " ".join(w.text for w in sorted_words)
+    # Sort lines by reading order (top-to-bottom, left-to-right)
+    all_lines.sort(key=lambda l: (l.y, l.x))
+    full_text = "\n".join(l.text for l in all_lines)
 
     return OcrPageResult(
         words=all_words,
+        lines=all_lines,
         page_width=image.width,
         page_height=image.height,
         full_text=full_text,
