@@ -47,6 +47,10 @@ contextBridge.exposeInMainWorld("api", {
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   showInFolder: (path) => ipcRenderer.invoke("show-in-folder", path),
 
+  // Upscale
+  startUpscale: (params) => ipcRenderer.invoke("start-upscale", params),
+  selectUpscaleOutput: (defaultName) => ipcRenderer.invoke("select-upscale-output", defaultName),
+
   // Auto-updater
   updaterCheck: () => ipcRenderer.invoke("updater-check"),
   updaterDownload: () => ipcRenderer.invoke("updater-download"),

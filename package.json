@@ -15,7 +15,7 @@
   "build": {
     "appId": "com.ancientpdfmaster.app",
     "productName": "Ancient PDF Master",
-    "copyright": "Copyright © 2024",
+    "copyright": "Copyright \u00a9 2024",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -40,6 +40,7 @@
         "to": "../app-update.yml"
       }
     ],
+    "afterPack": "./scripts/after-pack.js",
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/icon.png",
@@ -86,7 +87,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "bitswt",
+        "owner": "glukupikr0n",
         "repo": "Ancient_PDF-Master"
       }
     ]
@@ -101,6 +102,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "BitSwt",
+  "author": "glukupikr0n",
   "license": "MIT"
 }

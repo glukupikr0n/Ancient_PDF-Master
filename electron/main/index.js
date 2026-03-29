@@ -175,6 +175,30 @@ ipcMain.handle("select-training-dir", async () => {
   return result.filePaths[0];
 });
 
+ipcMain.handle("start-upscale", async (_event, params) => {
+  const onProgress = (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("ocr-progress", data);
+    }
+  };
+  return pythonBridge.send("upscale", params, onProgress);
+});
+
+ipcMain.handle("select-upscale-output", async (_event, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Save Upscaled File",
+    defaultPath: defaultName || "upscaled.pdf",
+    filters: [
+      { name: "PDF Files", extensions: ["pdf"] },
+      { name: "PNG Images", extensions: ["png"] },
+      { name: "JPEG Images", extensions: ["jpg"] },
+      { name: "TIFF Images", extensions: ["tiff"] },
+    ],
+  });
+  if (result.canceled) return null;
+  return result.filePath;
+});
+
 ipcMain.handle("get-setup-status", async () => {
   if (!pythonBridge) return { message: "Initializing..." };
   return { message: pythonBridge._setupMessage || null };
