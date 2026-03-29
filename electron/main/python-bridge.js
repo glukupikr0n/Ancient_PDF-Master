@@ -115,6 +115,25 @@ class PythonBridge {
     return path.join(__dirname, "../../src");
   }
 
+  _getTessdataPrefix() {
+    // Bundled tessdata contains .traineddata files directly.
+    // TESSDATA_PREFIX should point to the directory containing .traineddata files.
+    const candidates = [];
+    if (app.isPackaged) {
+      candidates.push(path.join(process.resourcesPath, "tessdata"));
+    }
+    // Dev mode: project_root/tessdata/
+    candidates.push(path.join(__dirname, "../../tessdata"));
+
+    for (const dir of candidates) {
+      if (fs.existsSync(dir)) {
+        console.log(`[Python] Bundled tessdata: ${dir}`);
+        return dir;
+      }
+    }
+    return "";
+  }
+
   _getEnvPath() {
     const existing = process.env.PATH || "";
     const sep = process.platform === "win32" ? ";" : ":";
@@ -164,7 +183,7 @@ class PythonBridge {
 
     // If packaged and no venv exists, create one
     if (app.isPackaged && this._appVenvDir && !fs.existsSync(this._appVenvDir)) {
-      console.log("[Python] No venv found — creating in Application Support...");
+      console.log("[Python] No venv found \u2014 creating in Application Support...");
       this._emitSetupProgress("Creating Python environment...");
       await this._createVenv(env);
       // Re-discover python after venv creation
@@ -190,7 +209,7 @@ class PythonBridge {
       });
       console.log("[Python] All packages already installed");
     } catch {
-      console.log("[Python] Missing packages — auto-installing...");
+      console.log("[Python] Missing packages \u2014 auto-installing...");
       needsInstall = true;
     }
 
@@ -310,7 +329,7 @@ class PythonBridge {
         } else {
           const lastLine = stderr.trim().split("\n").pop() || stdout.trim().split("\n").pop();
           console.error("[Python] pip install failed:", lastLine);
-          // Don't reject — still try to spawn, bridge.py will report the exact missing packages
+          // Don't reject \u2014 still try to spawn, bridge.py will report the exact missing packages
           resolve();
         }
       });
@@ -346,14 +365,23 @@ class PythonBridge {
         }
       }, 15000);
 
+      const spawnEnv = {
+        ...process.env,
+        PYTHONUNBUFFERED: "1",
+        PYTHONPATH: srcPath,
+        PATH: envPath,
+      };
+
+      // Set TESSDATA_PREFIX to bundled tessdata so Tesseract finds
+      // language packs without requiring system-wide installation
+      const tessdataPrefix = this._getTessdataPrefix();
+      if (tessdataPrefix) {
+        spawnEnv.TESSDATA_PREFIX = tessdataPrefix;
+      }
+
       this._process = spawn(python, ["-u", "-m", "ancient_pdf_master.bridge"], {
         stdio: ["pipe", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          PYTHONUNBUFFERED: "1",
-          PYTHONPATH: srcPath,
-          PATH: envPath,
-        },
+        env: spawnEnv,
       });
 
       this._process.stdout.on("data", (chunk) => {
