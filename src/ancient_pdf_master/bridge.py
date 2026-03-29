@@ -63,6 +63,36 @@ def handle_get_languages(params: dict) -> dict:
     }
 
 
+def _parse_page_range(range_str: str, total_pages: int) -> list[int]:
+    """Parse a page range string like '1-5, 8, 10-12' into 0-based indices.
+
+    Returns sorted, deduplicated list of valid 0-based page indices.
+    """
+    indices = set()
+    for part in range_str.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            bounds = part.split("-", 1)
+            try:
+                start = int(bounds[0].strip())
+                end = int(bounds[1].strip())
+            except ValueError:
+                continue
+            for p in range(start, end + 1):
+                if 1 <= p <= total_pages:
+                    indices.add(p - 1)
+        else:
+            try:
+                p = int(part)
+                if 1 <= p <= total_pages:
+                    indices.add(p - 1)
+            except ValueError:
+                continue
+    return sorted(indices)
+
+
 def handle_start_ocr(params: dict) -> dict:
     from .image_handler import load_images
     from .language import validate_languages
@@ -75,6 +105,7 @@ def handle_start_ocr(params: dict) -> dict:
     lang = params.get("lang", "grc+lat+eng")
     dpi = params.get("dpi", 300)
     min_confidence = params.get("min_confidence", 0)  # 0 = disabled
+    page_range_str = params.get("page_range", "")
 
     # Validate language packs before starting
     validate_languages(lang)
@@ -106,6 +137,19 @@ def handle_start_ocr(params: dict) -> dict:
     # Load images
     send_event("progress", {"current": 0, "total": 0, "message": "Loading file..."})
     images = load_images(input_path, dpi=dpi)
+
+    # Filter by page range if specified
+    selected_indices = None
+    if page_range_str:
+        selected_indices = _parse_page_range(page_range_str, len(images))
+        if not selected_indices:
+            raise ValueError(f"No valid pages in range: {page_range_str}")
+        images = [images[i] for i in selected_indices]
+        send_event("progress", {
+            "current": 0, "total": len(images),
+            "message": f"Selected {len(images)} pages from range: {page_range_str}",
+        })
+
     total = len(images)
 
     # Apply preprocessing if configured

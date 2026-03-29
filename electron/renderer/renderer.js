@@ -55,6 +55,7 @@ const tocImportText = document.getElementById("toc-import-text");
 const btnParseToc = document.getElementById("btn-parse-toc");
 
 const confidenceRetry = document.getElementById("confidence-retry");
+const pageRangeInput = document.getElementById("page-range");
 const zonePreset = document.getElementById("zone-preset");
 const zoneHint = document.getElementById("zone-hint");
 const zoneParams = document.getElementById("zone-params");
@@ -305,50 +306,86 @@ async function loadPreprocessedPage(index) {
   }
 }
 
+// ── Interactive Margin Drag State ──
+let marginDragState = null; // { edge: "left"|"right", startX, startMargin }
+const DRAG_HANDLE_WIDTH = 8; // px hit area for drag handles
+
+function getMarginZones() {
+  const preset = zonePreset.value;
+  const mw = parseInt(zoneMarginWidth.value) / 100;
+  if (preset === "left_margin") {
+    return [
+      { x: 0, y: 0, w: mw, h: 1, label: "Margin" },
+      { x: mw, y: 0, w: 1 - mw, h: 1, label: "Body" },
+    ];
+  } else if (preset === "both_margins") {
+    // Symmetric: odd pages have left margin at left, even pages mirror
+    const isEvenPage = (currentPage % 2 === 1); // 0-indexed
+    if (isEvenPage) {
+      return [
+        { x: 0, y: 0, w: 1 - mw, h: 1, label: "Body" },
+        { x: 1 - mw, y: 0, w: mw, h: 1, label: "Margin" },
+      ];
+    }
+    return [
+      { x: 0, y: 0, w: mw, h: 1, label: "L.Margin" },
+      { x: mw, y: 0, w: 1 - 2 * mw, h: 1, label: "Body" },
+      { x: 1 - mw, y: 0, w: mw, h: 1, label: "R.Margin" },
+    ];
+  }
+  return null;
+}
+
+function getDraggableEdges() {
+  const preset = zonePreset.value;
+  const mw = parseInt(zoneMarginWidth.value) / 100;
+  const w = previewOverlay.width;
+  if (preset === "left_margin") {
+    return [{ edge: "right-of-left", xFrac: mw }];
+  } else if (preset === "both_margins") {
+    const isEvenPage = (currentPage % 2 === 1);
+    if (isEvenPage) {
+      return [{ edge: "left-of-right", xFrac: 1 - mw }];
+    }
+    return [
+      { edge: "right-of-left", xFrac: mw },
+      { edge: "left-of-right", xFrac: 1 - mw },
+    ];
+  }
+  return [];
+}
+
 function drawZoneOverlay() {
-  const canvas = previewOverlay;
+  const cvs = previewOverlay;
   const img = previewImage;
 
-  canvas.width = img.clientWidth;
-  canvas.height = img.clientHeight;
-  canvas.style.width = img.clientWidth + "px";
-  canvas.style.height = img.clientHeight + "px";
+  cvs.width = img.clientWidth;
+  cvs.height = img.clientHeight;
+  cvs.style.width = img.clientWidth + "px";
+  cvs.style.height = img.clientHeight + "px";
 
-  // Position overlay on top of image
   const wrapper = document.getElementById("preview-image-wrapper");
   const imgRect = img.getBoundingClientRect();
   const wrapperRect = wrapper.getBoundingClientRect();
-  canvas.style.left = (imgRect.left - wrapperRect.left) + "px";
-  canvas.style.top = (imgRect.top - wrapperRect.top) + "px";
+  cvs.style.left = (imgRect.left - wrapperRect.left) + "px";
+  cvs.style.top = (imgRect.top - wrapperRect.top) + "px";
 
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const ctx = cvs.getContext("2d");
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
 
   if (!pvShowZones.checked) return;
 
   const preset = zonePreset.value;
   if (preset === "full_page") return;
 
-  const w = canvas.width;
-  const h = canvas.height;
+  const w = cvs.width;
+  const h = cvs.height;
   const colors = ["rgba(52, 208, 88, 0.2)", "rgba(88, 166, 255, 0.2)", "rgba(248, 81, 73, 0.2)"];
   const borders = ["rgba(52, 208, 88, 0.6)", "rgba(88, 166, 255, 0.6)", "rgba(248, 81, 73, 0.6)"];
 
   let zones = [];
-
-  if (preset === "left_margin") {
-    const mw = parseInt(zoneMarginWidth.value) / 100;
-    zones = [
-      { x: 0, y: 0, w: mw, h: 1, label: "Margin" },
-      { x: mw, y: 0, w: 1 - mw, h: 1, label: "Body" },
-    ];
-  } else if (preset === "both_margins") {
-    const mw = parseInt(zoneMarginWidth.value) / 100;
-    zones = [
-      { x: 0, y: 0, w: mw, h: 1, label: "L.Margin" },
-      { x: mw, y: 0, w: 1 - 2 * mw, h: 1, label: "Body" },
-      { x: 1 - mw, y: 0, w: mw, h: 1, label: "R.Margin" },
-    ];
+  if (preset === "left_margin" || preset === "both_margins") {
+    zones = getMarginZones() || [];
   } else if (preset === "custom") {
     const rows = zoneCustomEntries.querySelectorAll(".zone-row");
     rows.forEach((row) => {
@@ -369,13 +406,92 @@ function drawZoneOverlay() {
     ctx.strokeStyle = borders[ci];
     ctx.lineWidth = 2;
     ctx.strokeRect(zone.x * w, zone.y * h, zone.w * w, zone.h * h);
-
-    // Label
     ctx.fillStyle = borders[ci];
     ctx.font = "11px -apple-system, sans-serif";
     ctx.fillText(zone.label, zone.x * w + 4, zone.y * h + 14);
   });
+
+  // Draw drag handles on margin edges
+  const edges = getDraggableEdges();
+  edges.forEach((e) => {
+    const xPx = e.xFrac * w;
+    ctx.fillStyle = "rgba(52, 208, 88, 0.7)";
+    ctx.fillRect(xPx - 2, h * 0.35, 4, h * 0.3);
+    // Arrow indicators
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("⇔", xPx, h * 0.5 + 5);
+    ctx.textAlign = "left";
+  });
 }
+
+// ── Margin Drag Interaction ──
+
+previewOverlay.addEventListener("mousedown", (e) => {
+  const preset = zonePreset.value;
+  if (preset !== "left_margin" && preset !== "both_margins") return;
+  if (!pvShowZones.checked) return;
+
+  const rect = previewOverlay.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const w = previewOverlay.width;
+
+  const edges = getDraggableEdges();
+  for (const edge of edges) {
+    const edgePx = edge.xFrac * w;
+    if (Math.abs(mouseX - edgePx) < DRAG_HANDLE_WIDTH) {
+      marginDragState = { edge: edge.edge, startX: mouseX, startMargin: parseInt(zoneMarginWidth.value) };
+      previewOverlay.style.cursor = "col-resize";
+      e.preventDefault();
+      return;
+    }
+  }
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!marginDragState) {
+    // Update cursor on hover
+    const preset = zonePreset.value;
+    if ((preset === "left_margin" || preset === "both_margins") && pvShowZones.checked) {
+      const rect = previewOverlay.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const w = previewOverlay.width;
+      const edges = getDraggableEdges();
+      let onEdge = false;
+      for (const edge of edges) {
+        if (Math.abs(mouseX - edge.xFrac * w) < DRAG_HANDLE_WIDTH) { onEdge = true; break; }
+      }
+      previewOverlay.style.cursor = onEdge ? "col-resize" : "default";
+    }
+    return;
+  }
+
+  const rect = previewOverlay.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const w = previewOverlay.width;
+
+  let newMarginFrac;
+  if (marginDragState.edge === "right-of-left") {
+    newMarginFrac = mouseX / w;
+  } else {
+    // left-of-right: mirror
+    newMarginFrac = 1 - (mouseX / w);
+  }
+
+  // Clamp between 5% and 40%
+  const newMarginPct = Math.round(Math.max(5, Math.min(40, newMarginFrac * 100)));
+  zoneMarginWidth.value = newMarginPct;
+  zoneMarginLabel.textContent = `${newMarginPct}%`;
+  drawZoneOverlay();
+});
+
+document.addEventListener("mouseup", () => {
+  if (marginDragState) {
+    marginDragState = null;
+    previewOverlay.style.cursor = "default";
+  }
+});
 
 btnPrevPage.addEventListener("click", () => showPage(currentPage - 1));
 btnNextPage.addEventListener("click", () => showPage(currentPage + 1));
@@ -680,6 +796,7 @@ btnStart.addEventListener("click", async () => {
     } else {
       const params = { input, output, lang, dpi };
       if (confidenceRetry.checked) params.min_confidence = 95.0;
+      if (pageRangeInput.value.trim()) params.page_range = pageRangeInput.value.trim();
       Object.assign(params, getZoneConfig());
       const preprocess = getPreprocessConfig();
       if (preprocess) params.preprocess = preprocess;
