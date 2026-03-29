@@ -175,6 +175,47 @@ ipcMain.handle("select-training-dir", async () => {
   return result.filePaths[0];
 });
 
+// ── Dataset IPC Handlers ──
+
+ipcMain.handle("list-available-datasets", async () => {
+  return pythonBridge.send("list_available_datasets", {});
+});
+
+ipcMain.handle("list-downloaded-datasets", async () => {
+  return pythonBridge.send("list_downloaded_datasets", {});
+});
+
+ipcMain.handle("download-dataset", async (_event, params) => {
+  const onProgress = (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("ocr-progress", data);
+    }
+  };
+  return pythonBridge.send("download_dataset", params, onProgress);
+});
+
+ipcMain.handle("convert-dataset", async (_event, params) => {
+  const onProgress = (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("ocr-progress", data);
+    }
+  };
+  return pythonBridge.send("convert_dataset", params, onProgress);
+});
+
+ipcMain.handle("delete-dataset", async (_event, params) => {
+  return pythonBridge.send("delete_dataset", params);
+});
+
+ipcMain.handle("select-dataset-output-dir", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Select Output Directory for Training Data",
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
+});
+
 ipcMain.handle("start-upscale", async (_event, params) => {
   const onProgress = (data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {

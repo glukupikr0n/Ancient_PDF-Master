@@ -47,6 +47,14 @@ contextBridge.exposeInMainWorld("api", {
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   showInFolder: (path) => ipcRenderer.invoke("show-in-folder", path),
 
+  // Datasets
+  listAvailableDatasets: () => ipcRenderer.invoke("list-available-datasets"),
+  listDownloadedDatasets: () => ipcRenderer.invoke("list-downloaded-datasets"),
+  downloadDataset: (params) => ipcRenderer.invoke("download-dataset", params),
+  convertDataset: (params) => ipcRenderer.invoke("convert-dataset", params),
+  deleteDataset: (params) => ipcRenderer.invoke("delete-dataset", params),
+  selectDatasetOutputDir: () => ipcRenderer.invoke("select-dataset-output-dir"),
+
   // Upscale
   startUpscale: (params) => ipcRenderer.invoke("start-upscale", params),
   selectUpscaleOutput: (defaultName) => ipcRenderer.invoke("select-upscale-output", defaultName),
