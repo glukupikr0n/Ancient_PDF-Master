@@ -11,6 +11,15 @@ SUPPORTED_LANGUAGES = {
     "grc": "Ancient Greek (Ἀρχαία Ἑλληνική)",
     "lat": "Latin (Latina)",
     "eng": "English",
+    "ell": "Greek Modern (Ελληνικά)",
+    "heb": "Hebrew (עברית)",
+    "ara": "Arabic (العربية)",
+    "syr": "Syriac (ܣܘܪܝܝܐ)",
+    "san": "Sanskrit (संस्कृतम्)",
+    "deu": "German (Deutsch)",
+    "fra": "French (Français)",
+    "ita": "Italian (Italiano)",
+    "spa": "Spanish (Español)",
 }
 
 DEFAULT_LANG = "grc+lat+eng"
@@ -83,7 +92,9 @@ def validate_languages(lang_string: str) -> str:
                 f"sudo apt install tesseract-ocr-{lang}"
             )
         raise ValueError(
-            f"Missing Tesseract language packs:\n" + "\n".join(install_hints)
+            f"Missing Tesseract language packs:\n" + "\n".join(install_hints) +
+            f"\n\nNote: grc, lat, eng are bundled with the app. "
+            f"Check TESSDATA_PREFIX if they're not detected."
         )
 
     return lang_string
