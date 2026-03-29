@@ -234,50 +234,97 @@ def retry_low_confidence_words(
 
         improved_words.append(best_word)
 
+    # Rebuild lines with improved words
+    # Create a map from (x, y, text) of original word to improved word
+    word_map = {}
+    for old_w, new_w in zip(result.words, improved_words):
+        word_map[id(old_w)] = new_w
+
+    improved_lines = []
+    for line in result.lines:
+        new_line_words = []
+        for w in line.words:
+            new_line_words.append(word_map.get(id(w), w))
+        new_line = OcrLine(words=new_line_words)
+        new_line.compute_bounds()
+        improved_lines.append(new_line)
+
     return OcrPageResult(
         words=improved_words,
+        lines=improved_lines,
         page_width=result.page_width,
         page_height=result.page_height,
         full_text=result.full_text,
     )
 
 
-def detect_columns(image: Image.Image) -> int:
+def detect_columns(image: Image.Image) -> tuple[int, float]:
     """Detect if a page has 1 or 2 text columns.
 
     Uses vertical projection profile: sum pixel intensity per column.
     A two-column layout has a clear gap (high white-space) in the middle.
+
+    Returns:
+        (num_columns, split_fraction) — split_fraction is the x-position
+        of the gap center as a fraction of image width (0.0–1.0).
+        For single-column, split_fraction is 0.5 (unused).
     """
     gray = image.convert("L")
 
     # Downscale for speed
-    scale = 400 / gray.width if gray.width > 400 else 1.0
+    target_w = 600
+    scale = target_w / gray.width if gray.width > target_w else 1.0
     if scale < 1.0:
-        gray = gray.resize((400, int(gray.height * scale)))
+        gray = gray.resize((target_w, int(gray.height * scale)))
 
     w, h = gray.size
     data = gray.tobytes()
 
+    # Only analyze the middle 80% of the page height (skip headers/footers)
+    y_start = int(h * 0.1)
+    y_end = int(h * 0.9)
+
     # Vertical projection: sum of dark pixels per column
     projections = []
     for x in range(w):
-        col_sum = sum(1 for y in range(h) if data[y * w + x] < 128)
+        col_sum = sum(1 for y in range(y_start, y_end) if data[y * w + x] < 128)
         projections.append(col_sum)
 
-    # Look for a gap in the middle 30% of the page
-    mid_start = int(w * 0.35)
-    mid_end = int(w * 0.65)
+    # Smooth the projection with a moving average to reduce noise
+    kernel = max(3, w // 60)
+    smoothed = []
+    for x in range(w):
+        start = max(0, x - kernel)
+        end = min(w, x + kernel + 1)
+        smoothed.append(sum(projections[start:end]) / (end - start))
+
+    # Look for a gap in the middle 40% of the page
+    mid_start = int(w * 0.30)
+    mid_end = int(w * 0.70)
     if mid_start >= mid_end:
-        return 1
+        return 1, 0.5
 
-    mid_projections = projections[mid_start:mid_end]
-    avg_all = sum(projections) / len(projections) if projections else 1
-    min_mid = min(mid_projections) if mid_projections else avg_all
+    mid_smoothed = smoothed[mid_start:mid_end]
 
-    # If the minimum in the middle is < 20% of the average, it's a column gap
-    if avg_all > 0 and min_mid < avg_all * 0.2:
-        return 2
-    return 1
+    # Compute stats for left and right halves (text regions)
+    left_avg = sum(smoothed[:mid_start]) / mid_start if mid_start > 0 else 0
+    right_avg = sum(smoothed[mid_end:]) / (w - mid_end) if (w - mid_end) > 0 else 0
+    text_avg = (left_avg + right_avg) / 2 if (left_avg + right_avg) > 0 else 1
+
+    # Find the minimum in the middle region
+    min_val = min(mid_smoothed) if mid_smoothed else text_avg
+    min_idx = mid_smoothed.index(min_val) + mid_start
+
+    # Two-column if the gap is significantly lower than the text regions
+    # and both sides have substantial text
+    if (text_avg > 0
+            and min_val < text_avg * 0.3
+            and left_avg > text_avg * 0.3
+            and right_avg > text_avg * 0.3):
+        split_frac = min_idx / w
+        return 2, split_frac
+
+    return 1, 0.5
 
 
 def ocr_page_two_column(
@@ -289,24 +336,32 @@ def ocr_page_two_column(
 
     Each column is OCR'd separately with PSM 4 (single column mode),
     then results are merged with correct coordinates.
+
+    Args:
+        image: Full page image.
+        lang: Tesseract language string.
+        split_frac: Where to split (0.0–1.0), from detect_columns().
     """
     w, h = image.size
     split_x = int(w * split_frac)
 
-    left_img = image.crop((0, 0, split_x, h))
-    right_img = image.crop((split_x, 0, w, h))
+    # Add small overlap at the split to avoid cutting through characters
+    overlap = int(w * 0.01)
+    left_img = image.crop((0, 0, min(split_x + overlap, w), h))
+    right_img = image.crop((max(split_x - overlap, 0), 0, w, h))
+    right_offset = max(split_x - overlap, 0)
 
     left_result = ocr_page(left_img, lang=lang, psm=4)
     right_result = ocr_page(right_img, lang=lang, psm=4)
 
-    # Offset right column words/lines
+    # Offset right column words/lines to full-page coordinates
     all_words = list(left_result.words)
     all_lines = list(left_result.lines)
 
     for word in right_result.words:
         all_words.append(OcrWord(
             text=word.text,
-            x=word.x + split_x,
+            x=word.x + right_offset,
             y=word.y,
             width=word.width,
             height=word.height,
@@ -316,19 +371,19 @@ def ocr_page_two_column(
     for line in right_result.lines:
         offset_words = [
             OcrWord(
-                text=w.text, x=w.x + split_x, y=w.y,
-                width=w.width, height=w.height, confidence=w.confidence,
+                text=lw.text, x=lw.x + right_offset, y=lw.y,
+                width=lw.width, height=lw.height, confidence=lw.confidence,
             )
-            for w in line.words
+            for lw in line.words
         ]
         new_line = OcrLine(words=offset_words)
         new_line.compute_bounds()
         all_lines.append(new_line)
 
     # Sort lines: left column first (top to bottom), then right column
-    all_lines.sort(key=lambda l: (l.x > split_x * 0.8, l.y))
+    all_lines.sort(key=lambda ln: (ln.x > split_x * 0.8, ln.y))
 
-    full_text = "\n".join(l.text for l in all_lines)
+    full_text = "\n".join(ln.text for ln in all_lines)
 
     return OcrPageResult(
         words=all_words,

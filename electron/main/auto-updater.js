@@ -98,8 +98,9 @@ function initAutoUpdater(win) {
 
   ipcMain.handle("updater-install", () => {
     if (!autoUpdater) return;
-    // Quit and install the update
-    autoUpdater.quitAndInstall(false, true);
+    // Force quit and install — isSilent=false, isForceRunAfter=true
+    // This ensures the old app is fully replaced
+    autoUpdater.quitAndInstall(true, true);
   });
 
   ipcMain.handle("updater-get-version", () => {

@@ -87,40 +87,46 @@ def _render_text_lines(c, lines, page_h: float, dpi: int):
     """
     from reportlab.pdfbase.pdfmetrics import stringWidth
 
+    font_name = "Helvetica"
+
     for line in lines:
         if not line.words:
             continue
 
-        # Use line height for consistent font size across the line
+        # Build full line text
+        line_text = " ".join(w.text for w in line.words)
+        if not line_text.strip():
+            continue
+
+        # Use line height for font size
         h_pt = _pixels_to_points(line.height, dpi)
-        font_size = max(h_pt * 0.8, 4)
-        font_name = "Helvetica"
+        font_size = max(h_pt * 0.85, 4)
 
         # Line start position
         x_pt = _pixels_to_points(line.x, dpi)
         y_pt = page_h - _pixels_to_points(line.y + line.height, dpi)
         line_w_pt = _pixels_to_points(line.width, dpi)
 
-        # Build full line text
-        line_text = " ".join(w.text for w in line.words)
-
-        # Scale font to fit the line width
+        # Calculate horizontal scale to fit text within the line bounding box
         natural_width = stringWidth(line_text, font_name, font_size)
+        h_scale = 100.0  # default: no scaling
+
         if natural_width > 0 and line_w_pt > 0:
-            h_scale = min(line_w_pt / natural_width, 1.5)
-            # Use character spacing to stretch/compress
-            if h_scale < 0.5:
-                # Text way too wide — reduce font size instead
-                font_size = font_size * (line_w_pt / natural_width)
-                font_size = max(font_size, 3)
-        else:
-            h_scale = 1.0
+            ratio = line_w_pt / natural_width
+            if ratio < 0.5:
+                # Text way too wide for the box — shrink font instead
+                font_size = max(font_size * ratio * 1.1, 3)
+                # Recalculate with new font size
+                natural_width = stringWidth(line_text, font_name, font_size)
+                ratio = line_w_pt / natural_width if natural_width > 0 else 1.0
+            # Clamp scale to reasonable range (50%–200%)
+            h_scale = max(50.0, min(ratio * 100.0, 200.0))
 
         c.setFont(font_name, font_size)
 
         text_obj = c.beginText(x_pt, y_pt)
         text_obj.setTextRenderMode(3)  # invisible
-        text_obj.setHorizScale(h_scale * 100)
+        text_obj.setHorizScale(h_scale)
         text_obj.textLine(line_text)
         c.drawText(text_obj)
 
