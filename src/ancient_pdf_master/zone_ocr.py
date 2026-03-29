@@ -61,21 +61,23 @@ def preset_classical_left_margin(
 
     Common in Loeb Classical Library, Oxford Classical Texts, Teubner editions.
     """
+    t = body_margin_top
+    b = body_margin_bottom
     return [
         ZoneConfig(
             zone_type=ZoneType.LEFT_MARGIN,
             x_start=0.0,
-            y_start=body_margin_top,
+            y_start=t,
             x_end=margin_width,
-            y_end=1.0 - body_margin_bottom,
+            y_end=1.0 - b,
             psm=11,  # Sparse text — best for scattered margin numbers
         ),
         ZoneConfig(
             zone_type=ZoneType.BODY,
             x_start=margin_width,
-            y_start=body_margin_top,
+            y_start=t,
             x_end=1.0,
-            y_end=1.0 - body_margin_bottom,
+            y_end=1.0 - b,
             psm=3,  # Fully automatic for body
         ),
     ]
@@ -86,35 +88,40 @@ def preset_classical_both_margins(
     right_margin: float = 0.10,
     top_margin: float = 0.08,
     bottom_margin: float = 0.08,
+    body_margin_top: float | None = None,
+    body_margin_bottom: float | None = None,
 ) -> list[ZoneConfig]:
     """Preset for texts with annotations in both margins.
 
     Common in critical editions with line numbers on left and
     apparatus references on right.
     """
+    # Allow frontend overrides for top/bottom margins
+    t = body_margin_top if body_margin_top is not None else top_margin
+    b = body_margin_bottom if body_margin_bottom is not None else bottom_margin
     return [
         ZoneConfig(
             zone_type=ZoneType.LEFT_MARGIN,
             x_start=0.0,
-            y_start=top_margin,
+            y_start=t,
             x_end=left_margin,
-            y_end=1.0 - bottom_margin,
+            y_end=1.0 - b,
             psm=11,
         ),
         ZoneConfig(
             zone_type=ZoneType.BODY,
             x_start=left_margin,
-            y_start=top_margin,
+            y_start=t,
             x_end=1.0 - right_margin,
-            y_end=1.0 - bottom_margin,
+            y_end=1.0 - b,
             psm=3,
         ),
         ZoneConfig(
             zone_type=ZoneType.RIGHT_MARGIN,
             x_start=1.0 - right_margin,
-            y_start=top_margin,
+            y_start=t,
             x_end=1.0,
-            y_end=1.0 - bottom_margin,
+            y_end=1.0 - b,
             psm=11,
         ),
     ]

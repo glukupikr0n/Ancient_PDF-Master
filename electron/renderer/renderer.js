@@ -63,6 +63,10 @@ const zoneParams = document.getElementById("zone-params");
 const zoneCustom = document.getElementById("zone-custom");
 const zoneMarginWidth = document.getElementById("zone-margin-width");
 const zoneMarginLabel = document.getElementById("zone-margin-label");
+const zoneMarginTop = document.getElementById("zone-margin-top");
+const zoneMarginTopLabel = document.getElementById("zone-margin-top-label");
+const zoneMarginBottom = document.getElementById("zone-margin-bottom");
+const zoneMarginBottomLabel = document.getElementById("zone-margin-bottom-label");
 const zoneCustomEntries = document.getElementById("zone-custom-entries");
 const zoneAutoDetect = document.getElementById("zone-auto-detect");
 const btnDetectRegions = document.getElementById("btn-detect-regions");
@@ -329,27 +333,34 @@ async function loadPreprocessedPage(index) {
 let marginDragState = null; // { edge: "left"|"right", startX, startMargin }
 const DRAG_HANDLE_WIDTH = 8; // px hit area for drag handles
 
+function getMarginValues() {
+  return {
+    lr: parseInt(zoneMarginWidth.value) / 100,
+    top: parseInt(zoneMarginTop.value) / 100,
+    bottom: parseInt(zoneMarginBottom.value) / 100,
+  };
+}
+
 function getMarginZones() {
   const preset = zonePreset.value;
-  const mw = parseInt(zoneMarginWidth.value) / 100;
+  const m = getMarginValues();
   if (preset === "left_margin") {
     return [
-      { x: 0, y: 0, w: mw, h: 1, label: "Margin" },
-      { x: mw, y: 0, w: 1 - mw, h: 1, label: "Body" },
+      { x: 0, y: m.top, w: m.lr, h: 1 - m.top - m.bottom, label: "Margin" },
+      { x: m.lr, y: m.top, w: 1 - m.lr, h: 1 - m.top - m.bottom, label: "Body" },
     ];
   } else if (preset === "both_margins") {
-    // Symmetric: odd pages have left margin at left, even pages mirror
-    const isEvenPage = (currentPage % 2 === 1); // 0-indexed
+    const isEvenPage = (currentPage % 2 === 1);
     if (isEvenPage) {
       return [
-        { x: 0, y: 0, w: 1 - mw, h: 1, label: "Body" },
-        { x: 1 - mw, y: 0, w: mw, h: 1, label: "Margin" },
+        { x: 0, y: m.top, w: 1 - m.lr, h: 1 - m.top - m.bottom, label: "Body" },
+        { x: 1 - m.lr, y: m.top, w: m.lr, h: 1 - m.top - m.bottom, label: "Margin" },
       ];
     }
     return [
-      { x: 0, y: 0, w: mw, h: 1, label: "L.Margin" },
-      { x: mw, y: 0, w: 1 - 2 * mw, h: 1, label: "Body" },
-      { x: 1 - mw, y: 0, w: mw, h: 1, label: "R.Margin" },
+      { x: 0, y: m.top, w: m.lr, h: 1 - m.top - m.bottom, label: "L.Margin" },
+      { x: m.lr, y: m.top, w: 1 - 2 * m.lr, h: 1 - m.top - m.bottom, label: "Body" },
+      { x: 1 - m.lr, y: m.top, w: m.lr, h: 1 - m.top - m.bottom, label: "R.Margin" },
     ];
   }
   return null;
@@ -357,21 +368,27 @@ function getMarginZones() {
 
 function getDraggableEdges() {
   const preset = zonePreset.value;
-  const mw = parseInt(zoneMarginWidth.value) / 100;
-  const w = previewOverlay.width;
+  const m = getMarginValues();
+  const edges = [];
+
+  // Top/bottom edges (common to both presets)
+  if (preset === "left_margin" || preset === "both_margins") {
+    edges.push({ edge: "top", yFrac: m.top, axis: "h" });
+    edges.push({ edge: "bottom", yFrac: 1 - m.bottom, axis: "h" });
+  }
+
   if (preset === "left_margin") {
-    return [{ edge: "right-of-left", xFrac: mw }];
+    edges.push({ edge: "right-of-left", xFrac: m.lr, axis: "v" });
   } else if (preset === "both_margins") {
     const isEvenPage = (currentPage % 2 === 1);
     if (isEvenPage) {
-      return [{ edge: "left-of-right", xFrac: 1 - mw }];
+      edges.push({ edge: "left-of-right", xFrac: 1 - m.lr, axis: "v" });
+    } else {
+      edges.push({ edge: "right-of-left", xFrac: m.lr, axis: "v" });
+      edges.push({ edge: "left-of-right", xFrac: 1 - m.lr, axis: "v" });
     }
-    return [
-      { edge: "right-of-left", xFrac: mw },
-      { edge: "left-of-right", xFrac: 1 - mw },
-    ];
   }
-  return [];
+  return edges;
 }
 
 function drawZoneOverlay() {
@@ -405,6 +422,16 @@ function drawZoneOverlay() {
   let zones = [];
   if (preset === "left_margin" || preset === "both_margins") {
     zones = getMarginZones() || [];
+    // Dim excluded top/bottom margins
+    const m = getMarginValues();
+    if (m.top > 0) {
+      ctx.fillStyle = "rgba(248, 81, 73, 0.1)";
+      ctx.fillRect(0, 0, w, m.top * h);
+    }
+    if (m.bottom > 0) {
+      ctx.fillStyle = "rgba(248, 81, 73, 0.1)";
+      ctx.fillRect(0, (1 - m.bottom) * h, w, m.bottom * h);
+    }
   } else if (preset === "body_only") {
     const m = parseInt(zoneBodyMargin.value) / 100;
     zones = [
@@ -473,16 +500,25 @@ function drawZoneOverlay() {
     ctx.fillText(zone.label, zone.x * w + 4, zone.y * h + 14);
   });
 
-  // Draw drag handles on margin edges (for margin presets)
+  // Draw drag handles on all edges (for margin presets)
   const edges = getDraggableEdges();
   edges.forEach((e) => {
-    const xPx = e.xFrac * w;
     ctx.fillStyle = "rgba(52, 208, 88, 0.7)";
-    ctx.fillRect(xPx - 2, h * 0.35, 4, h * 0.3);
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("⇔", xPx, h * 0.5 + 5);
+    if (e.axis === "v") {
+      // Vertical edge (left/right margin boundary)
+      const xPx = e.xFrac * w;
+      ctx.fillRect(xPx - 2, h * 0.35, 4, h * 0.3);
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillText("⇔", xPx, h * 0.5 + 5);
+    } else {
+      // Horizontal edge (top/bottom margin boundary)
+      const yPx = e.yFrac * h;
+      ctx.fillRect(w * 0.35, yPx - 2, w * 0.3, 4);
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillText("⇕", w * 0.5, yPx + 5);
+    }
     ctx.textAlign = "left";
   });
 }
@@ -555,17 +591,27 @@ previewOverlay.addEventListener("mousedown", (e) => {
     return;
   }
 
-  // Margin presets
+  // Margin presets (left_margin, both_margins)
   if (preset !== "left_margin" && preset !== "both_margins") return;
 
   const edges = getDraggableEdges();
   for (const edge of edges) {
-    const edgePx = edge.xFrac * w;
-    if (Math.abs(mouseX - edgePx) < DRAG_HANDLE_WIDTH) {
-      marginDragState = { edge: edge.edge, startX: mouseX, startMargin: parseInt(zoneMarginWidth.value) };
-      previewOverlay.style.cursor = "col-resize";
-      e.preventDefault();
-      return;
+    if (edge.axis === "v") {
+      const edgePx = edge.xFrac * w;
+      if (Math.abs(mouseX - edgePx) < DRAG_HANDLE_WIDTH) {
+        marginDragState = { edge: edge.edge, axis: "v" };
+        previewOverlay.style.cursor = "col-resize";
+        e.preventDefault();
+        return;
+      }
+    } else {
+      const edgePx = edge.yFrac * h;
+      if (Math.abs(mouseY - edgePx) < DRAG_HANDLE_WIDTH) {
+        marginDragState = { edge: edge.edge, axis: "h" };
+        previewOverlay.style.cursor = "row-resize";
+        e.preventDefault();
+        return;
+      }
     }
   }
 });
@@ -635,15 +681,25 @@ document.addEventListener("mousemove", (e) => {
       return;
     }
 
-    let newMarginFrac;
-    if (marginDragState.edge === "right-of-left") {
-      newMarginFrac = mouseX / w;
+    if (marginDragState.edge === "top") {
+      const pct = Math.round(Math.max(0, Math.min(30, (mouseY / h) * 100)));
+      zoneMarginTop.value = pct;
+      zoneMarginTopLabel.textContent = `${pct}%`;
+    } else if (marginDragState.edge === "bottom") {
+      const pct = Math.round(Math.max(0, Math.min(30, (1 - mouseY / h) * 100)));
+      zoneMarginBottom.value = pct;
+      zoneMarginBottomLabel.textContent = `${pct}%`;
     } else {
-      newMarginFrac = 1 - (mouseX / w);
+      let newMarginFrac;
+      if (marginDragState.edge === "right-of-left") {
+        newMarginFrac = mouseX / w;
+      } else {
+        newMarginFrac = 1 - (mouseX / w);
+      }
+      const newMarginPct = Math.round(Math.max(3, Math.min(40, newMarginFrac * 100)));
+      zoneMarginWidth.value = newMarginPct;
+      zoneMarginLabel.textContent = `${newMarginPct}%`;
     }
-    const newMarginPct = Math.round(Math.max(5, Math.min(40, newMarginFrac * 100)));
-    zoneMarginWidth.value = newMarginPct;
-    zoneMarginLabel.textContent = `${newMarginPct}%`;
     drawZoneOverlay();
     return;
   }
@@ -675,11 +731,12 @@ document.addEventListener("mousemove", (e) => {
     previewOverlay.style.cursor = cursor;
   } else if (preset === "left_margin" || preset === "both_margins") {
     const edges = getDraggableEdges();
-    let onEdge = false;
+    let cursor = "default";
     for (const edge of edges) {
-      if (Math.abs(mouseX - edge.xFrac * w) < DRAG_HANDLE_WIDTH) { onEdge = true; break; }
+      if (edge.axis === "v" && Math.abs(mouseX - edge.xFrac * w) < DRAG_HANDLE_WIDTH) { cursor = "col-resize"; break; }
+      if (edge.axis === "h" && Math.abs(mouseY - edge.yFrac * h) < DRAG_HANDLE_WIDTH) { cursor = "row-resize"; break; }
     }
-    previewOverlay.style.cursor = onEdge ? "col-resize" : "default";
+    previewOverlay.style.cursor = cursor;
   } else {
     previewOverlay.style.cursor = "default";
   }
@@ -722,6 +779,16 @@ zonePreset.addEventListener("change", () => {
 
 zoneMarginWidth.addEventListener("input", () => {
   zoneMarginLabel.textContent = `${zoneMarginWidth.value}%`;
+  drawZoneOverlay();
+});
+
+zoneMarginTop.addEventListener("input", () => {
+  zoneMarginTopLabel.textContent = `${zoneMarginTop.value}%`;
+  drawZoneOverlay();
+});
+
+zoneMarginBottom.addEventListener("input", () => {
+  zoneMarginBottomLabel.textContent = `${zoneMarginBottom.value}%`;
   drawZoneOverlay();
 });
 
@@ -912,10 +979,10 @@ function getZoneConfig() {
     });
     return { zone_preset: "custom", zones };
   }
-  const marginWidth = parseInt(zoneMarginWidth.value) / 100;
-  const zoneParamsObj = {};
-  if (preset === "left_margin") zoneParamsObj.margin_width = marginWidth;
-  else if (preset === "both_margins") { zoneParamsObj.left_margin = marginWidth; zoneParamsObj.right_margin = marginWidth; }
+  const m = getMarginValues();
+  const zoneParamsObj = { body_margin_top: m.top, body_margin_bottom: m.bottom };
+  if (preset === "left_margin") zoneParamsObj.margin_width = m.lr;
+  else if (preset === "both_margins") { zoneParamsObj.left_margin = m.lr; zoneParamsObj.right_margin = m.lr; }
   return { zone_preset: preset, zone_params: zoneParamsObj };
 }
 
