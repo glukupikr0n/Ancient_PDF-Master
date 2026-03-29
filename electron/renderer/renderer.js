@@ -54,6 +54,7 @@ const tocImportArea = document.getElementById("toc-import-area");
 const tocImportText = document.getElementById("toc-import-text");
 const btnParseToc = document.getElementById("btn-parse-toc");
 
+const confidenceRetry = document.getElementById("confidence-retry");
 const zonePreset = document.getElementById("zone-preset");
 const zoneHint = document.getElementById("zone-hint");
 const zoneParams = document.getElementById("zone-params");
@@ -678,6 +679,7 @@ btnStart.addEventListener("click", async () => {
       modalOverlay.classList.remove("hidden");
     } else {
       const params = { input, output, lang, dpi };
+      if (confidenceRetry.checked) params.min_confidence = 95.0;
       Object.assign(params, getZoneConfig());
       const preprocess = getPreprocessConfig();
       if (preprocess) params.preprocess = preprocess;

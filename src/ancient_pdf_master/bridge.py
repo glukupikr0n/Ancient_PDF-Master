@@ -66,7 +66,7 @@ def handle_get_languages(params: dict) -> dict:
 def handle_start_ocr(params: dict) -> dict:
     from .image_handler import load_images
     from .language import validate_languages
-    from .ocr_engine import ocr_page
+    from .ocr_engine import ocr_page, retry_low_confidence_words
     from .pdf_builder import build_searchable_pdf
     from .zone_ocr import ZONE_PRESETS, ZoneConfig, ZoneType, ocr_page_with_zones
 
@@ -74,6 +74,7 @@ def handle_start_ocr(params: dict) -> dict:
     output_path = params["output"]
     lang = params.get("lang", "grc+lat+eng")
     dpi = params.get("dpi", 300)
+    min_confidence = params.get("min_confidence", 0)  # 0 = disabled
 
     # Validate language packs before starting
     validate_languages(lang)
@@ -157,6 +158,35 @@ def handle_start_ocr(params: dict) -> dict:
 
     if _cancel_flag.is_set():
         raise ValueError("Processing cancelled.")
+
+    # Confidence retry pass
+    if min_confidence > 0:
+        send_event("progress", {
+            "current": 0,
+            "total": total,
+            "message": f"Retrying low-confidence words (< {min_confidence}%)...",
+        })
+        for i, (image, result) in enumerate(zip(images, ocr_results)):
+            if _cancel_flag.is_set():
+                raise ValueError("Processing cancelled.")
+
+            old_conf = result.page_confidence
+            improved = retry_low_confidence_words(
+                image, result, lang=lang, min_confidence=min_confidence,
+            )
+            ocr_results[i] = improved
+            new_conf = improved.page_confidence
+            improved_count = sum(
+                1 for old_w, new_w in zip(result.words, improved.words)
+                if new_w.confidence > old_w.confidence
+            )
+
+            send_event("progress", {
+                "current": i + 1,
+                "total": total,
+                "message": f"Retry page {i + 1}/{total}: {improved_count} words improved, "
+                           f"confidence {old_conf:.1f}% → {new_conf:.1f}%",
+            })
 
     # Parse optional page labels
     page_label_ranges = None

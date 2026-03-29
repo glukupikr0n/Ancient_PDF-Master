@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from ancient_pdf_master.ocr_engine import OcrPageResult, OcrWord, ocr_page
+from ancient_pdf_master.ocr_engine import OcrPageResult, OcrWord, ocr_page, retry_low_confidence_words
 
 
 def test_ocr_page_result_confidence():
@@ -46,3 +46,60 @@ def test_ocr_page_filters_empty_text(mock_tess):
     assert result.word_count == 2
     assert result.words[0].text == "hello"
     assert result.words[1].text == "world"
+
+
+@patch("ancient_pdf_master.ocr_engine.pytesseract")
+def test_retry_low_confidence_improves(mock_tess):
+    """Words below threshold get retried; higher-confidence result is kept."""
+    mock_tess.Output = type("Output", (), {"DICT": "dict"})()
+
+    # Retry returns a better result for the low-confidence word
+    mock_tess.image_to_data.return_value = {
+        "text": ["world"],
+        "conf": [98.0],
+        "left": [0],
+        "top": [0],
+        "width": [50],
+        "height": [20],
+    }
+
+    img = Image.new("RGB", (200, 100), "white")
+    initial = OcrPageResult(
+        words=[
+            OcrWord("hello", 10, 10, 50, 20, 96.0),  # above threshold
+            OcrWord("wrold", 80, 10, 50, 20, 60.0),   # below threshold → retry
+        ],
+        page_width=200,
+        page_height=100,
+        full_text="hello wrold",
+    )
+
+    result = retry_low_confidence_words(img, initial, min_confidence=95.0)
+
+    assert result.word_count == 2
+    # First word unchanged (was above threshold)
+    assert result.words[0].text == "hello"
+    assert result.words[0].confidence == 96.0
+    # Second word improved
+    assert result.words[1].text == "world"
+    assert result.words[1].confidence == 98.0
+
+
+def test_retry_low_confidence_no_retry_needed():
+    """When all words are above threshold, nothing changes."""
+    img = Image.new("RGB", (200, 100), "white")
+    initial = OcrPageResult(
+        words=[
+            OcrWord("hello", 10, 10, 50, 20, 97.0),
+            OcrWord("world", 80, 10, 50, 20, 96.0),
+        ],
+        page_width=200,
+        page_height=100,
+        full_text="hello world",
+    )
+
+    result = retry_low_confidence_words(img, initial, min_confidence=95.0)
+
+    assert result.word_count == 2
+    assert result.words[0].confidence == 97.0
+    assert result.words[1].confidence == 96.0
