@@ -175,6 +175,71 @@ ipcMain.handle("select-training-dir", async () => {
   return result.filePaths[0];
 });
 
+// ── Dataset IPC Handlers ──
+
+ipcMain.handle("list-available-datasets", async () => {
+  return pythonBridge.send("list_available_datasets", {});
+});
+
+ipcMain.handle("list-downloaded-datasets", async () => {
+  return pythonBridge.send("list_downloaded_datasets", {});
+});
+
+ipcMain.handle("download-dataset", async (_event, params) => {
+  const onProgress = (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("ocr-progress", data);
+    }
+  };
+  return pythonBridge.send("download_dataset", params, onProgress);
+});
+
+ipcMain.handle("convert-dataset", async (_event, params) => {
+  const onProgress = (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("ocr-progress", data);
+    }
+  };
+  return pythonBridge.send("convert_dataset", params, onProgress);
+});
+
+ipcMain.handle("delete-dataset", async (_event, params) => {
+  return pythonBridge.send("delete_dataset", params);
+});
+
+ipcMain.handle("select-dataset-output-dir", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Select Output Directory for Training Data",
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle("start-upscale", async (_event, params) => {
+  const onProgress = (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("ocr-progress", data);
+    }
+  };
+  return pythonBridge.send("upscale", params, onProgress);
+});
+
+ipcMain.handle("select-upscale-output", async (_event, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Save Upscaled File",
+    defaultPath: defaultName || "upscaled.pdf",
+    filters: [
+      { name: "PDF Files", extensions: ["pdf"] },
+      { name: "PNG Images", extensions: ["png"] },
+      { name: "JPEG Images", extensions: ["jpg"] },
+      { name: "TIFF Images", extensions: ["tiff"] },
+    ],
+  });
+  if (result.canceled) return null;
+  return result.filePath;
+});
+
 ipcMain.handle("get-setup-status", async () => {
   if (!pythonBridge) return { message: "Initializing..." };
   return { message: pythonBridge._setupMessage || null };

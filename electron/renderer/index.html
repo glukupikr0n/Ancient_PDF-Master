@@ -74,6 +74,20 @@
               <label class="checkbox-item"><input type="checkbox" id="lang-lat" checked><span>Latin</span></label>
               <label class="checkbox-item"><input type="checkbox" id="lang-eng" checked><span>English</span></label>
             </div>
+            <details class="lang-more">
+              <summary class="settings-label" style="cursor:pointer;font-size:12px;opacity:0.7;">More languages</summary>
+              <div class="checkbox-row" style="margin-top:6px;">
+                <label class="checkbox-item"><input type="checkbox" id="lang-ell"><span>Greek Modern</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-heb"><span>Hebrew</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-ara"><span>Arabic</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-syr"><span>Syriac</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-san"><span>Sanskrit</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-deu"><span>German</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-fra"><span>French</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-ita"><span>Italian</span></label>
+                <label class="checkbox-item"><input type="checkbox" id="lang-spa"><span>Spanish</span></label>
+              </div>
+            </details>
             <div id="custom-lang-row" class="checkbox-row hidden"></div>
           </div>
           <div class="settings-group">
@@ -239,6 +253,45 @@
                 <span id="pp-bw-label" class="slider-label">128</span>
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- Upscale -->
+        <section class="card">
+          <h2>
+            <label class="toggle-switch">
+              <input type="checkbox" id="upscale-enabled">
+              <span class="toggle-track"></span>
+              <span>Upscale Images</span>
+            </label>
+          </h2>
+          <div id="upscale-settings" class="hidden">
+            <div class="zone-hint" style="margin-bottom:10px;">Enlarge pages using high-quality Lanczos resampling. Useful for improving print quality or preparing high-DPI exports.</div>
+            <div class="settings-group">
+              <label class="settings-label">Scale Factor</label>
+              <div class="slider-row">
+                <input type="range" id="upscale-scale" min="1.5" max="4" step="0.5" value="2" class="slider-input">
+                <span id="upscale-scale-label" class="slider-label">2×</span>
+              </div>
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Output Format</label>
+              <select id="upscale-format" class="select-input">
+                <option value="pdf">PDF (single file)</option>
+                <option value="png">PNG (per-page images)</option>
+                <option value="tiff">TIFF (per-page images)</option>
+                <option value="jpg">JPEG (per-page images)</option>
+              </select>
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Output</label>
+              <div class="file-row">
+                <input type="text" id="upscale-output" placeholder="Auto-generate" class="flex-1">
+                <button id="btn-upscale-browse" class="btn btn-secondary btn-small">Browse</button>
+              </div>
+            </div>
+            <button id="btn-start-upscale" class="btn btn-primary" style="width:100%;margin-top:8px;" disabled>Upscale</button>
+            <div id="upscale-status" class="zone-hint" style="margin-top:6px;"></div>
           </div>
         </section>
 
@@ -414,6 +467,31 @@
               <div class="zone-hint" style="margin-bottom:6px;">Split a page image into individual line images with initial OCR text. Edit the .gt.txt files to correct the ground truth.</div>
               <button id="btn-generate-lines" class="btn btn-secondary" style="width:100%;">Split Page into Lines</button>
               <div id="generate-lines-status" class="zone-hint" style="margin-top:4px;"></div>
+            </div>
+
+            <!-- Dataset Browser -->
+            <div class="settings-group" style="margin-top:14px; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+              <label class="settings-label">Training Datasets</label>
+              <div class="zone-hint" style="margin-bottom:6px;">
+                Download verified training data from Lace (Greek OCR corrections) and OpenGreekAndLatin (TEI corpus).
+              </div>
+
+              <!-- Available datasets -->
+              <div id="dataset-catalog" style="max-height:220px; overflow-y:auto; margin-bottom:8px;"></div>
+
+              <!-- Download / Convert progress -->
+              <div id="dataset-progress-section" class="hidden" style="margin-top:8px;">
+                <div class="progress-bar-container">
+                  <div id="dataset-progress-bar" class="progress-bar" style="width:0%"></div>
+                </div>
+                <div id="dataset-progress-text" class="progress-text">Ready</div>
+              </div>
+
+              <!-- Downloaded datasets -->
+              <div style="margin-top:8px;">
+                <label class="settings-label" style="font-size:11px; opacity:0.7;">Downloaded</label>
+                <div id="downloaded-dataset-list" class="zone-hint">None yet</div>
+              </div>
             </div>
 
             <div id="train-tools-warning" class="hidden" style="margin-top:8px; padding:8px; background:rgba(255,180,0,0.1); border-radius:6px; font-size:12px; color:#ffb400;">

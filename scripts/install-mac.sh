@@ -10,10 +10,10 @@ cd "$PROJECT_DIR"
 APP_NAME="Ancient PDF Master"
 APP_SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 
-echo "=== $APP_NAME — macOS Install ==="
+echo "=== $APP_NAME \u2014 macOS Install ==="
 echo ""
 
-# ── 1. Check system dependencies ──
+# \u2500\u2500 1. Check system dependencies \u2500\u2500
 echo "[1/6] Checking system dependencies..."
 
 # Check Homebrew
@@ -36,7 +36,7 @@ if [ "$NODE_VERSION" -lt 18 ]; then
 fi
 echo "  [OK] Node.js $(node -v)"
 
-# Check Python 3 — prefer Homebrew over Xcode
+# Check Python 3 \u2014 prefer Homebrew over Xcode
 PYTHON3=""
 BREW_PYTHON="$(brew --prefix)/bin/python3"
 if [ -x "$BREW_PYTHON" ]; then
@@ -44,7 +44,7 @@ if [ -x "$BREW_PYTHON" ]; then
 elif command -v python3 &>/dev/null; then
   PY_PATH="$(which python3)"
   if [[ "$PY_PATH" == *"Xcode"* || "$PY_PATH" == *"CommandLineTools"* ]]; then
-    echo "  Xcode Python detected — installing Homebrew Python..."
+    echo "  Xcode Python detected \u2014 installing Homebrew Python..."
     brew install python3
     PYTHON3="$(brew --prefix)/bin/python3"
   else
@@ -78,24 +78,11 @@ if ! brew list qpdf &>/dev/null 2>&1; then
 fi
 echo "  [OK] qpdf installed"
 
-# Check language packs
-TESS_LANGS=$(tesseract --list-langs 2>&1)
-NEED_LANG=false
-for LANG_CODE in grc lat; do
-  if ! echo "$TESS_LANGS" | grep -q "$LANG_CODE"; then
-    NEED_LANG=true
-    break
-  fi
-done
-
-if [ "$NEED_LANG" = true ]; then
-  echo "  Installing Tesseract language packs (Ancient Greek, Latin)..."
-  brew install tesseract-lang
-fi
-echo "  [OK] Language packs: grc, lat, eng"
+# Language packs are bundled in the app \u2014 no system install needed
+echo "  [OK] Language packs: grc, lat, eng (bundled in app)"
 echo ""
 
-# ── 2. Create Python venv in Application Support ──
+# \u2500\u2500 2. Create Python venv in Application Support \u2500\u2500
 echo "[2/6] Setting up Python environment..."
 mkdir -p "$APP_SUPPORT_DIR"
 VENV_DIR="$APP_SUPPORT_DIR/.venv"
@@ -139,7 +126,7 @@ if [ ! -d "$LOCAL_VENV" ]; then
   "$LOCAL_VENV/bin/pip" install -e . --quiet 2>&1 || true
 fi
 
-# ── 3. Install Node.js dependencies ──
+# \u2500\u2500 3. Install Node.js dependencies \u2500\u2500
 echo "[3/6] Installing Node.js dependencies..."
 if ! npm install 2>&1 | tail -5; then
   echo "ERROR: npm install failed. Try: rm -rf node_modules && npm install"
@@ -148,7 +135,7 @@ fi
 echo "  [OK] Node.js packages installed"
 echo ""
 
-# ── 4. Build .app bundle ──
+# \u2500\u2500 4. Build .app bundle \u2500\u2500
 echo "[4/6] Building .app bundle..."
 # Use 'dir' target with explicit publish config so app-update.yml is generated
 if ! npx electron-builder --mac dir --config.mac.identity=null --config.mac.target=dir 2>&1 | tail -5; then
@@ -157,7 +144,7 @@ if ! npx electron-builder --mac dir --config.mac.identity=null --config.mac.targ
   echo ""
 fi
 
-# ── 5. Copy to /Applications ──
+# \u2500\u2500 5. Copy to /Applications \u2500\u2500
 APP_SRC=$(find dist -name "*.app" -maxdepth 3 -type d 2>/dev/null | head -1)
 
 if [ -z "$APP_SRC" ]; then
@@ -183,7 +170,7 @@ cp -R "$APP_SRC" "/Applications/$APP_NAME.app"
 echo "  [OK] Installed to /Applications/$APP_NAME.app"
 echo ""
 
-# ── 6. Clear quarantine (so macOS doesn't block unsigned app) ──
+# \u2500\u2500 6. Clear quarantine (so macOS doesn't block unsigned app) \u2500\u2500
 echo "[6/6] Clearing quarantine attribute..."
 xattr -rd com.apple.quarantine "/Applications/$APP_NAME.app" 2>/dev/null || true
 echo "  [OK] Quarantine cleared"
@@ -194,7 +181,7 @@ echo "  Installation Complete!"
 echo "==========================================="
 echo ""
 echo "  Launch:"
-echo "    Spotlight:  Cmd+Space → '$APP_NAME'"
+echo "    Spotlight:  Cmd+Space \u2192 '$APP_NAME'"
 echo "    Finder:     /Applications/$APP_NAME.app"
 echo "    Terminal:    open '/Applications/$APP_NAME.app'"
 echo ""
@@ -202,5 +189,5 @@ echo "  Dev mode (no .app needed):"
 echo "    npm start"
 echo ""
 echo "  If macOS still blocks the app:"
-echo "    System Settings → Privacy & Security → Open Anyway"
+echo "    System Settings \u2192 Privacy & Security \u2192 Open Anyway"
 echo ""

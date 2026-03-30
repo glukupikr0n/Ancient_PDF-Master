@@ -39,3 +39,6 @@ package-lock.json
 
 # Distribution
 *.spec
+
+# Tessdata (too large for git, bundled via afterPack at build time)
+tessdata/*.traineddata

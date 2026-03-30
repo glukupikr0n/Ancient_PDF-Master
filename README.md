@@ -77,7 +77,7 @@
 ### One-Line Install (macOS)
 
 ```bash
-git clone https://github.com/bitswt/Ancient_PDF-Master.git
+git clone https://github.com/glukupikr0n/Ancient_PDF-Master.git
 cd Ancient_PDF-Master
 ./scripts/install-mac.sh
 ```
@@ -90,7 +90,7 @@ Launch via **Spotlight (Cmd+Space) → "Ancient PDF Master"**.
 Run without building a `.app`:
 
 ```bash
-git clone https://github.com/bitswt/Ancient_PDF-Master.git
+git clone https://github.com/glukupikr0n/Ancient_PDF-Master.git
 cd Ancient_PDF-Master
 
 # Python virtual environment

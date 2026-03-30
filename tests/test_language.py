@@ -11,8 +11,8 @@ from ancient_pdf_master.language import (
 )
 
 
-def test_default_lang_contains_all_supported():
-    for code in SUPPORTED_LANGUAGES:
+def test_default_lang_contains_core_languages():
+    for code in ["grc", "lat", "eng"]:
         assert code in DEFAULT_LANG
 
 
