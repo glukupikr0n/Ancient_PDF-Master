@@ -52,6 +52,16 @@
 - **Manual TOC entry** — Add, edit, or import from text with hierarchical levels
 - **PDF bookmarks** — TOC entries embedded as navigable PDF outline
 
+### Image Upscaling
+- **Lanczos resampling** — Enlarge pages at 1.5×–4× for print quality or high-DPI exports
+- **Multiple output formats** — PDF (single file), PNG, TIFF, or JPEG per-page images
+
+### Model Training & Datasets
+- **Tesseract fine-tuning** — Train custom models for handwritten manuscripts with line images + ground truth pairs
+- **Training data preparation** — Split page images into individual line images with initial OCR text
+- **Dataset browser** — Download verified training data from Lace (Greek OCR corrections) and OpenGreekAndLatin (TEI corpus)
+- **Custom model management** — List, use, and delete fine-tuned models
+
 ### Desktop App
 - **Dark-themed Electron GUI** — Clean macOS-native look with hidden title bar
 - **Drag & drop** — Drop PDF/image files directly onto the app
@@ -118,11 +128,11 @@ Or use the helper script:
 
 | Platform | Command | Output |
 |----------|---------|--------|
-| macOS DMG | `npm run build:dmg` | `dist/Ancient PDF Master-1.0.0.dmg` |
+| macOS DMG | `npm run build:dmg` | `dist/Ancient PDF Master-1.1.0.dmg` |
 | macOS .app | `npm run build:mac` | `dist/mac-universal/` |
-| Linux AppImage | `npm run build:linux` | `dist/Ancient PDF Master-1.0.0.AppImage` |
-| Linux .deb | `npm run build:linux` | `dist/ancient-pdf-master_1.0.0_amd64.deb` |
-| Windows | `npm run build:win` | `dist/Ancient PDF Master Setup 1.0.0.exe` |
+| Linux AppImage | `npm run build:linux` | `dist/Ancient PDF Master-1.1.0.AppImage` |
+| Linux .deb | `npm run build:linux` | `dist/ancient-pdf-master_1.1.0_amd64.deb` |
+| Windows | `npm run build:win` | `dist/Ancient PDF Master Setup 1.1.0.exe` |
 
 The Python backend is automatically bundled into the app's `resources/python/` directory.
 On first launch, the app creates a virtual environment in the user's Application Support folder
@@ -137,12 +147,15 @@ and installs required Python packages.
 │  Electron GUI   │ ◄──────────► │   Main Process   │ ◄────────────────► │ Python Backend  │
 │                 │              │                  │                    │                 │
 │  renderer.js    │              │  index.js        │                    │  bridge.py      │
-│  index.html     │              │  python-bridge.js│                    │  ocr_engine.py  │
-│  main.css       │              │  preload.js      │                    │  pdf_builder.py │
-│                 │              │  auto-updater.js │                    │  zone_ocr.py    │
-└─────────────────┘              └──────────────────┘                    │  preprocess.py  │
-                                                                        │  ...            │
-                                                                        └─────────────────┘
+│  renderer-      │              │  python-bridge.js│                    │  ocr_engine.py  │
+│   interaction.js│              │  preload.js      │                    │  pdf_builder.py │
+│  renderer-      │              │  auto-updater.js │                    │  zone_ocr.py    │
+│   logic.js      │              │                  │                    │  training.py    │
+│  renderer-      │              │                  │                    │  datasets.py    │
+│   extensions.js │              │                  │                    │  upscale.py     │
+│  index.html     │              │                  │                    │  preprocess.py  │
+│  main.css       │              │                  │                    │  ...            │
+└─────────────────┘              └──────────────────┘                    └─────────────────┘
 ```
 
 **Communication protocol:** Newline-delimited JSON over stdin/stdout.
@@ -163,9 +176,12 @@ electron/
     python-bridge.js    # Python child process manager, auto venv setup
     auto-updater.js     # GitHub Releases auto-update
   renderer/
-    index.html          # UI layout
-    renderer.js         # Frontend logic, preview, drag interactions
-    styles/main.css     # Dark theme styles
+    index.html               # UI layout
+    renderer.js              # DOM init, preview, zone overlay drawing
+    renderer-interaction.js  # Drag interactions, margin/crop/region handles
+    renderer-logic.js        # OCR config, start/cancel, TOC, page labels
+    renderer-extensions.js   # Upscale UI, dataset browser
+    styles/main.css          # Dark theme styles
 src/ancient_pdf_master/
     bridge.py           # stdio JSON-RPC server, request dispatcher
     ocr_engine.py       # Tesseract wrapper, column detection, confidence retry
@@ -177,9 +193,13 @@ src/ancient_pdf_master/
     page_labels.py      # Roman/Arabic page numbering
     toc_builder.py      # TOC bookmark embedding
     language.py         # Language pack validation
+    training.py         # Tesseract fine-tuning (lstmtraining)
+    datasets.py         # Lace & OGL dataset download/import
+    upscale.py          # Lanczos image upscaling
 scripts/
     install-mac.sh      # Full macOS install (deps + build + /Applications)
     run-dev.sh          # Quick dev launch
+    after-pack.js       # electron-builder hook: bundle tessdata
 assets/
     icon.png            # App icon (1024×1024)
     icon.ico            # Windows icon

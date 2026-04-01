@@ -10,11 +10,11 @@ cd "$PROJECT_DIR"
 APP_NAME="Ancient PDF Master"
 APP_SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 
-echo "=== $APP_NAME \u2014 macOS Install ==="
+echo "=== $APP_NAME — macOS Install ==="
 echo ""
 
-# \u2500\u2500 1. Check system dependencies \u2500\u2500
-echo "[1/6] Checking system dependencies..."
+# ── 1. Check system dependencies ──
+echo "[1/7] Checking system dependencies..."
 
 # Check Homebrew
 if ! command -v brew &>/dev/null; then
@@ -36,7 +36,7 @@ if [ "$NODE_VERSION" -lt 18 ]; then
 fi
 echo "  [OK] Node.js $(node -v)"
 
-# Check Python 3 \u2014 prefer Homebrew over Xcode
+# Check Python 3 — prefer Homebrew over Xcode
 PYTHON3=""
 BREW_PYTHON="$(brew --prefix)/bin/python3"
 if [ -x "$BREW_PYTHON" ]; then
@@ -44,7 +44,7 @@ if [ -x "$BREW_PYTHON" ]; then
 elif command -v python3 &>/dev/null; then
   PY_PATH="$(which python3)"
   if [[ "$PY_PATH" == *"Xcode"* || "$PY_PATH" == *"CommandLineTools"* ]]; then
-    echo "  Xcode Python detected \u2014 installing Homebrew Python..."
+    echo "  Xcode Python detected — installing Homebrew Python..."
     brew install python3
     PYTHON3="$(brew --prefix)/bin/python3"
   else
@@ -78,12 +78,12 @@ if ! brew list qpdf &>/dev/null 2>&1; then
 fi
 echo "  [OK] qpdf installed"
 
-# Language packs are bundled in the app \u2014 no system install needed
+# Language packs are bundled in the app — no system install needed
 echo "  [OK] Language packs: grc, lat, eng (bundled in app)"
 echo ""
 
-# \u2500\u2500 2. Create Python venv in Application Support \u2500\u2500
-echo "[2/6] Setting up Python environment..."
+# ── 2. Create Python venv in Application Support ──
+echo "[2/7] Setting up Python environment..."
 mkdir -p "$APP_SUPPORT_DIR"
 VENV_DIR="$APP_SUPPORT_DIR/.venv"
 
@@ -126,8 +126,8 @@ if [ ! -d "$LOCAL_VENV" ]; then
   "$LOCAL_VENV/bin/pip" install -e . --quiet 2>&1 || true
 fi
 
-# \u2500\u2500 3. Install Node.js dependencies \u2500\u2500
-echo "[3/6] Installing Node.js dependencies..."
+# ── 3. Install Node.js dependencies ──
+echo "[3/7] Installing Node.js dependencies..."
 if ! npm install 2>&1 | tail -5; then
   echo "ERROR: npm install failed. Try: rm -rf node_modules && npm install"
   exit 1
@@ -135,8 +135,25 @@ fi
 echo "  [OK] Node.js packages installed"
 echo ""
 
-# \u2500\u2500 4. Build .app bundle \u2500\u2500
-echo "[4/6] Building .app bundle..."
+# ── 4. Remove previous installation FIRST ──
+# This must happen BEFORE the build step so that if the build fails,
+# the user does NOT keep launching a stale old app from /Applications.
+echo "[4/7] Removing previous installation (if any)..."
+if [ -d "/Applications/$APP_NAME.app" ]; then
+  echo "  Stopping running instance..."
+  osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
+  sleep 1
+  pkill -f "$APP_NAME" 2>/dev/null || true
+  sleep 0.5
+  rm -rf "/Applications/$APP_NAME.app"
+  echo "  [OK] Old app removed from /Applications"
+else
+  echo "  [OK] No previous installation found"
+fi
+echo ""
+
+# ── 5. Build .app bundle ──
+echo "[5/7] Building .app bundle..."
 
 # Clean previous build artifacts to prevent stale .app from being picked up
 if [ -d "dist" ]; then
@@ -151,41 +168,40 @@ if [ -d "$UPDATER_CACHE" ]; then
   rm -rf "$UPDATER_CACHE"
 fi
 
-# Use 'dir' target with explicit publish config so app-update.yml is generated
-if ! npx electron-builder --mac dir --config.mac.identity=null --config.mac.target=dir 2>&1 | tail -5; then
+# Build the app — capture exit code properly (don't mask with pipe)
+BUILD_LOG=$(mktemp)
+set +e
+npx electron-builder --mac dir --config.mac.identity=null --config.mac.target=dir > "$BUILD_LOG" 2>&1
+BUILD_EXIT=$?
+set -e
+echo "  Build output (last 5 lines):"
+tail -5 "$BUILD_LOG" | sed 's/^/    /'
+rm -f "$BUILD_LOG"
+
+if [ $BUILD_EXIT -ne 0 ]; then
   echo ""
-  echo "WARNING: .app build failed. You can still run: npm start"
-  echo ""
+  echo "ERROR: .app build failed (exit code $BUILD_EXIT)."
+  echo "  You can still run in dev mode: npm start"
+  echo "  Or retry: npx electron-builder --mac dir --config.mac.identity=null"
+  exit 1
 fi
 
-# \u2500\u2500 5. Copy to /Applications \u2500\u2500
+# ── 6. Copy to /Applications ──
 APP_SRC=$(find dist -name "*.app" -maxdepth 3 -type d 2>/dev/null | head -1)
 
 if [ -z "$APP_SRC" ]; then
-  echo "WARNING: .app not found in dist/"
+  echo "ERROR: .app not found in dist/ despite successful build."
   echo "  You can run in dev mode: npm start"
-  echo "  Or retry: npx electron-builder --mac dir --config.mac.identity=null"
-  exit 0
+  exit 1
 fi
 
-echo "[5/6] Installing to /Applications..."
-if [ -d "/Applications/$APP_NAME.app" ]; then
-  echo "  Stopping running instance..."
-  osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
-  sleep 1
-  # Force kill if still running
-  pkill -f "$APP_NAME" 2>/dev/null || true
-  sleep 0.5
-  echo "  Removing previous installation..."
-  rm -rf "/Applications/$APP_NAME.app"
-fi
-
+echo "[6/7] Installing to /Applications..."
 cp -R "$APP_SRC" "/Applications/$APP_NAME.app"
 echo "  [OK] Installed to /Applications/$APP_NAME.app"
 echo ""
 
-# \u2500\u2500 6. Clear quarantine (so macOS doesn't block unsigned app) \u2500\u2500
-echo "[6/6] Clearing quarantine attribute..."
+# ── 7. Clear quarantine (so macOS doesn't block unsigned app) ──
+echo "[7/7] Clearing quarantine attribute..."
 xattr -rd com.apple.quarantine "/Applications/$APP_NAME.app" 2>/dev/null || true
 echo "  [OK] Quarantine cleared"
 
@@ -195,7 +211,7 @@ echo "  Installation Complete!"
 echo "==========================================="
 echo ""
 echo "  Launch:"
-echo "    Spotlight:  Cmd+Space \u2192 '$APP_NAME'"
+echo "    Spotlight:  Cmd+Space → '$APP_NAME'"
 echo "    Finder:     /Applications/$APP_NAME.app"
 echo "    Terminal:    open '/Applications/$APP_NAME.app'"
 echo ""
@@ -203,5 +219,5 @@ echo "  Dev mode (no .app needed):"
 echo "    npm start"
 echo ""
 echo "  If macOS still blocks the app:"
-echo "    System Settings \u2192 Privacy & Security \u2192 Open Anyway"
+echo "    System Settings → Privacy & Security → Open Anyway"
 echo ""
