@@ -50,6 +50,8 @@ function initAutoUpdater(win) {
   // Don't auto-download — let the user decide
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Prevent downgrade to older GitHub releases
+  autoUpdater.allowDowngrade = false;
 
   // ── Events ──
 
